@@ -1,0 +1,29 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/workspace
+    username: workspace
+    password: ${DB_PASSWORD:workspace}
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+app:
+  security:
+    jwt:
+      secret: ${JWT_SECRET:local-dev-only-change-me-32bytes-min}
+
+management:
+  endpoint:
+    health:
+      show-details: when_authorized
+
+logging:
+  level:
+    root: INFO
+    com.example.workspace: DEBUG
+    org.jooq.tools.LoggerListener: WARN

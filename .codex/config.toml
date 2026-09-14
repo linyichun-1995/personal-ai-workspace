@@ -1,0 +1,3 @@
+[mcp_servers.reactbits]
+command = "pnpm"
+args = ["--dir", "E:/develop/personal-ai-workspace/frontend", "exec", "shadcn", "mcp"]

@@ -1,0 +1,61 @@
+spring:
+  application:
+    name: ai-personal-workspace
+  profiles:
+    default: local
+  threads:
+    virtual:
+      enabled: true
+  jackson:
+    datatype:
+      datetime:
+        write-dates-as-timestamps: false
+  jooq:
+    sql-dialect: postgres
+
+server:
+  port: 8080
+  servlet:
+    encoding:
+      charset: UTF-8
+      force: true
+
+app:
+  request-id-header: X-Request-Id
+  cors:
+    allowed-origins:
+      - http://localhost:5173
+    allowed-methods:
+      - GET
+      - POST
+      - PUT
+      - PATCH
+      - DELETE
+      - OPTIONS
+    allowed-headers:
+      - Authorization
+      - Content-Type
+      - X-Request-Id
+    allow-credentials: true
+  security:
+    jwt:
+      secret: ${JWT_SECRET}
+      access-token-ttl: 15m
+      refresh-token-ttl: 14d
+    password:
+      encoder: bcrypt
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} [%thread] %-5level %logger{36} requestId=%X{requestId} - %msg%n"

@@ -1,0 +1,15 @@
+package com.example.workspace.common.api;
+
+public enum ErrorCode {
+    VALIDATION_ERROR,
+    UNAUTHORIZED,
+    FORBIDDEN,
+    RESOURCE_NOT_FOUND,
+    CONFLICT,
+    BUSINESS_RULE_VIOLATION,
+    AUTH_INVALID_CREDENTIALS,
+    AUTH_EMAIL_TAKEN,
+    AUTH_ACCOUNT_DISABLED,
+    AUTH_TOKEN_INVALID,
+    INTERNAL_ERROR
+}

@@ -1,0 +1,5 @@
+export { api, apiClient, setAuthExpiredHandler } from '@/shared/api/client'
+export { ApiError, isApiError, toErrorMessage } from '@/shared/api/errors'
+export { queryKeys } from '@/shared/api/query-keys'
+export { consumeSseStream } from '@/shared/api/stream'
+export type { ConsumeSseOptions, StreamEvent } from '@/shared/api/stream'

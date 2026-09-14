@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="400" viewBox="0 0 360 400"><defs>
+  <linearGradient id="shell" x1=".24" y1="0" x2=".76" y2="1" gradientUnits="objectBoundingBox"><stop stop-color="#ffffff"/><stop offset=".22" stop-color="#dbe6ff"/><stop offset=".52" stop-color="#9baedc"/><stop offset=".77" stop-color="#c1d1fa"/><stop offset="1" stop-color="#f3f7ff"/></linearGradient>
+  <linearGradient id="body" x1=".18" y1="0" x2=".8" y2="1"><stop stop-color="#edf3ff"/><stop offset=".4" stop-color="#c2d3f6"/><stop offset=".75" stop-color="#8ca6e2"/><stop offset="1" stop-color="#b0daff"/></linearGradient>
+  <linearGradient id="arm" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f4f8ff"/><stop offset=".4" stop-color="#c5d7ff"/><stop offset=".8" stop-color="#8dabe6"/><stop offset="1" stop-color="#e0edff"/></linearGradient>
+  <radialGradient id="visor" cx=".68" cy=".12" r=".95"><stop stop-color="#3b4a6f"/><stop offset=".35" stop-color="#202c49"/><stop offset=".72" stop-color="#111c33"/><stop offset="1" stop-color="#253555"/></radialGradient>
+  <linearGradient id="rim"><stop stop-color="#6d97ee"/><stop offset=".5" stop-color="#c2e4ff"/><stop offset="1" stop-color="#769dff"/></linearGradient>
+  <radialGradient id="core"><stop stop-color="#e2f7ff"/><stop offset=".55" stop-color="#74bdff"/><stop offset="1" stop-color="#6985ee" stop-opacity="0"/></radialGradient>
+  <filter id="soft"><feGaussianBlur stdDeviation="3"/></filter>
+  <filter id="light"><feGaussianBlur stdDeviation="1.5"/></filter>
+</defs><path d="M132 261C115 244 100 249 102 267C106 299 128 329 149 334C168 334 151 283 132 261Z" fill="url(#arm)" stroke="#d8e9ff" stroke-width="1.4"/><path d="M109 261C112 278 125 308 144 322" stroke="#f1f7ff" opacity=".5" fill="none"/></svg>
