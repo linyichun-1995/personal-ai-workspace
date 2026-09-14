@@ -3,6 +3,7 @@ package com.example.workspace.workspace.repository;
 import static org.jooq.impl.DSL.field;
 import static org.jooq.impl.DSL.table;
 
+import com.example.workspace.common.exception.ConflictException;
 import com.example.workspace.workspace.domain.Workspace;
 import com.example.workspace.workspace.domain.WorkspaceType;
 import java.time.Instant;
@@ -44,6 +45,22 @@ public class WorkspaceRepository {
         return dsl.selectFrom(WORKSPACES)
                 .where(field("id", UUID.class).eq(id))
                 .fetchOptional(this::toWorkspace);
+    }
+
+    public Workspace updateSettings(UUID id, long version, String name, String timezone, int weekStartsOn, Instant now) {
+        int updated = dsl.update(WORKSPACES)
+                .set(field("name"), name)
+                .set(field("timezone"), timezone)
+                .set(field("week_starts_on"), weekStartsOn)
+                .set(field("updated_at"), now.atOffset(ZoneOffset.UTC))
+                .set(field("version"), version + 1)
+                .where(field("id", UUID.class).eq(id))
+                .and(field("version", Long.class).eq(version))
+                .execute();
+        if (updated == 0) {
+            throw ConflictException.versionMismatch();
+        }
+        return findById(id).orElseThrow(() -> new IllegalStateException("Workspace not found after update: " + id));
     }
 
     private Workspace toWorkspace(Record record) {

@@ -1,15 +1,18 @@
 package com.example.workspace.workspace.application;
 
+import com.example.workspace.common.util.TimeZones;
 import com.example.workspace.common.util.UuidV7;
 import com.example.workspace.workspace.domain.Workspace;
 import com.example.workspace.workspace.domain.WorkspaceMember;
 import com.example.workspace.workspace.domain.WorkspaceRole;
 import com.example.workspace.workspace.domain.WorkspaceType;
+import com.example.workspace.workspace.dto.UpdateWorkspaceRequest;
 import com.example.workspace.workspace.repository.WorkspaceMemberRepository;
 import com.example.workspace.workspace.repository.WorkspaceRepository;
 import java.time.Instant;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class WorkspaceService {
@@ -60,5 +63,19 @@ public class WorkspaceService {
         return workspaceMemberRepository.findByUserId(userId)
                 .flatMap(member -> workspaceRepository.findById(member.workspaceId()))
                 .orElseThrow(() -> new IllegalStateException("User has no workspace: " + userId));
+    }
+
+    @Transactional
+    public Workspace updateSettings(WorkspaceAccess access, UpdateWorkspaceRequest request) {
+        String name = request.name().trim();
+        String timezone = TimeZones.requireValid(request.timezone());
+        return workspaceRepository.updateSettings(
+                access.workspace().id(),
+                request.version(),
+                name,
+                timezone,
+                request.weekStartsOn(),
+                Instant.now()
+        );
     }
 }

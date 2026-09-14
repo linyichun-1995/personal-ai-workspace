@@ -3,6 +3,7 @@ package com.example.workspace.user.repository;
 import static org.jooq.impl.DSL.field;
 import static org.jooq.impl.DSL.table;
 
+import com.example.workspace.common.exception.ConflictException;
 import com.example.workspace.user.domain.User;
 import com.example.workspace.user.domain.UserStatus;
 import java.time.Instant;
@@ -68,6 +69,43 @@ public class UserRepository {
                 .set(field("updated_at"), toOffset(lastLoginAt))
                 .where(field("id", UUID.class).eq(userId))
                 .execute();
+    }
+
+    public User updateProfile(
+            UUID userId,
+            long version,
+            String displayName,
+            String avatarUrl,
+            String locale,
+            String timezone,
+            Instant now
+    ) {
+        int updated = dsl.update(USERS)
+                .set(field("display_name"), displayName)
+                .set(field("avatar_url"), avatarUrl)
+                .set(field("locale"), locale)
+                .set(field("timezone"), timezone)
+                .set(field("updated_at"), toOffset(now))
+                .set(field("version"), version + 1)
+                .where(field("id", UUID.class).eq(userId))
+                .and(field("version", Long.class).eq(version))
+                .execute();
+        if (updated == 0) {
+            throw ConflictException.versionMismatch();
+        }
+        return findById(userId).orElseThrow(() -> new IllegalStateException("User not found after update: " + userId));
+    }
+
+    public User updatePassword(UUID userId, String passwordHash, Instant now) {
+        int updated = dsl.update(USERS)
+                .set(field("password_hash"), passwordHash)
+                .set(field("updated_at"), toOffset(now))
+                .where(field("id", UUID.class).eq(userId))
+                .execute();
+        if (updated == 0) {
+            throw new IllegalStateException("User not found: " + userId);
+        }
+        return findById(userId).orElseThrow(() -> new IllegalStateException("User not found after password update: " + userId));
     }
 
     private User toUser(Record record) {

@@ -8,6 +8,7 @@ import com.example.workspace.common.exception.ConflictException;
 import com.example.workspace.common.exception.UnauthorizedException;
 import com.example.workspace.common.security.CurrentUser;
 import com.example.workspace.common.util.Emails;
+import com.example.workspace.common.util.TimeZones;
 import com.example.workspace.common.util.UuidV7;
 import com.example.workspace.infrastructure.redis.RefreshSession;
 import com.example.workspace.infrastructure.redis.RefreshTokenStore;
@@ -69,7 +70,7 @@ public class AuthService {
                 name,
                 null,
                 "zh-CN",
-                "UTC",
+                TimeZones.normalizeOrDefault(request.timezone()),
                 UserStatus.ACTIVE,
                 now,
                 now,

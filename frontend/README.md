@@ -21,8 +21,10 @@ pnpm build
 
 ## 登录与注册交互
 
-- `/login`：登录；`/register`：注册；`/forgot-password`：找回密码的前端反馈。
-- **仅前端体验**：任意通过格式校验的输入都会触发连接动画并进入现有 Dashboard，不请求认证接口、不创建账户、不保存密码或会话。空字段、无效邮箱、弱密码和确认密码不一致会展示错误反馈。找回密码不会发送邮件。
+- `/login`：登录；`/register`：注册；`/forgot-password`：找回密码的前端反馈（本期不发送邮件）。
+- 登录和注册会请求后端 `/api/v1/auth/*`，Access Token 保存在内存，Refresh Token 由 HttpOnly Cookie 维持。刷新页面会调用 `/auth/refresh` 恢复登录态。
+- 设置页包含个人资料、工作空间、安全（改密）和外观。改密会使其他会话失效。
+- 页面以最新蓝灰色机器人参考图为基准，原星空、极光与流光边框方案已移除。
 - 页面以最新蓝灰色机器人参考图为基准，原星空、极光与流光边框方案已移除。
 - `src/features/auth/motion/auth-motion-controller.ts` 是所有动画的唯一状态源。输入框只派发事件，文字、SVG 连接与卡片消费统一 presentation；机器人接收同一状态对应的 Rive 输入。
 - 提交依次连接项目 / 任务 / 笔记 / 文件 / AI：每步 260ms，总连接时间 1400ms；成功停留 650ms，再以 300ms 淡出进入 Dashboard。
@@ -32,6 +34,15 @@ pnpm build
 - ReactBits 官方 registry 与项目 MCP 配置保留在 `components.json`、根目录 `.codex/config.toml`；当前页面动效按新要求采用 Motion + Rive + SVG。
 
 验证命令：`pnpm typecheck`、`pnpm lint`、`pnpm fmt:check`、`pnpm exec vitest run`、`pnpm exec playwright test`、`pnpm build`。浏览器测试默认使用本机 Edge。
+
+真实会话 E2E（`e2e/session.e2e.ts`）需要后端已启动，并且是包含资料 / Workspace API 的当前代码：
+
+```bash
+docker compose up -d
+cd backend && ./gradlew bootRun --args='--spring.profiles.active=local'
+```
+
+健康检查不通时该文件会 skip。若 8080 上仍是旧进程，资料与隔离用例会 skip，登录恢复与退出仍会跑。
 
 ## 工作台 UI 架构
 

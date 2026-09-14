@@ -6,6 +6,7 @@ import com.example.workspace.common.util.UuidV7;
 import com.example.workspace.infrastructure.config.AppProperties;
 import com.example.workspace.infrastructure.redis.RefreshSession;
 import com.example.workspace.infrastructure.redis.RefreshTokenStore;
+import com.example.workspace.infrastructure.redis.TokenEpochStore;
 import com.example.workspace.infrastructure.security.JwtService;
 import java.security.SecureRandom;
 import java.time.Instant;
@@ -20,15 +21,18 @@ public class TokenIssuer {
 
     private final JwtService jwtService;
     private final RefreshTokenStore refreshTokenStore;
+    private final TokenEpochStore tokenEpochStore;
     private final AppProperties appProperties;
 
     public TokenIssuer(
             JwtService jwtService,
             RefreshTokenStore refreshTokenStore,
+            TokenEpochStore tokenEpochStore,
             AppProperties appProperties
     ) {
         this.jwtService = jwtService;
         this.refreshTokenStore = refreshTokenStore;
+        this.tokenEpochStore = tokenEpochStore;
         this.appProperties = appProperties;
     }
 
@@ -50,7 +54,10 @@ public class TokenIssuer {
     }
 
     private IssuedTokens issue(CurrentUser user, UUID familyId) {
-        JwtService.IssuedAccessToken accessToken = jwtService.issueAccessToken(user);
+        JwtService.IssuedAccessToken accessToken = jwtService.issueAccessToken(
+                user,
+                tokenEpochStore.current(user.userId())
+        );
         String refreshToken = newRefreshToken();
         Instant now = Instant.now();
         refreshTokenStore.save(

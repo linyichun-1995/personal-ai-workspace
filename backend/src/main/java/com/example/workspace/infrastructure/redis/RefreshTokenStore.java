@@ -16,6 +16,7 @@ public class RefreshTokenStore {
 
     private static final String KEY_PREFIX = "auth:refresh:";
     private static final String FAMILY_PREFIX = "auth:refresh-family:";
+    private static final String USER_PREFIX = "auth:refresh-user:";
 
     private final StringRedisTemplate redis;
     private final JsonMapper jsonMapper;
@@ -31,6 +32,9 @@ public class RefreshTokenStore {
         String familyKey = familyKey(session.familyId());
         redis.opsForSet().add(familyKey, hash);
         redis.expire(familyKey, ttl);
+        String userKey = userKey(session.userId());
+        redis.opsForSet().add(userKey, session.familyId().toString());
+        redis.expire(userKey, ttl);
     }
 
     public Optional<RefreshSession> find(String rawToken) {
@@ -54,6 +58,17 @@ public class RefreshTokenStore {
             }
         }
         redis.delete(familyKey);
+    }
+
+    public void revokeAllForUser(UUID userId) {
+        String userKey = userKey(userId);
+        Set<String> familyIds = redis.opsForSet().members(userKey);
+        if (familyIds != null) {
+            for (String familyId : familyIds) {
+                revokeFamily(UUID.fromString(familyId));
+            }
+        }
+        redis.delete(userKey);
     }
 
     public void expire(String rawToken) {
@@ -98,5 +113,9 @@ public class RefreshTokenStore {
 
     private static String familyKey(UUID familyId) {
         return FAMILY_PREFIX + familyId;
+    }
+
+    private static String userKey(UUID userId) {
+        return USER_PREFIX + userId;
     }
 }

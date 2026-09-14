@@ -33,7 +33,12 @@ export function RegisterPage() {
           if (!controller.beginSubmit())
             return
           try {
-            const session = await registerAccount({ name: values.name, email: values.email, password: values.password })
+            const session = await registerAccount({
+              name: values.name,
+              email: values.email,
+              password: values.password,
+              timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            })
             queryClient.setQueryData(queryKeys.auth.session(), session)
             controller.succeed(() => {
               void navigate({ to: '/app/dashboard' })

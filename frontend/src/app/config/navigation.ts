@@ -33,6 +33,10 @@ export type AppRoute
     | '/app/ai/agents'
     | '/app/integrations'
     | '/app/settings'
+    | '/app/settings/appearance'
+    | '/app/settings/profile'
+    | '/app/settings/workspace'
+    | '/app/settings/security'
 
 export interface AppNavChild {
   label: string

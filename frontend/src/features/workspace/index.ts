@@ -1,2 +1,6 @@
 export { DashboardPage } from '@/features/workspace/pages/dashboard-page'
-export { SettingsPage } from '@/features/workspace/pages/settings-page'
+export { AppearanceSettingsPage } from '@/features/workspace/pages/appearance-settings-page'
+export { ProfileSettingsPage } from '@/features/workspace/pages/profile-settings-page'
+export { SecuritySettingsPage } from '@/features/workspace/pages/security-settings-page'
+export { SettingsLayout } from '@/features/workspace/pages/settings-layout'
+export { WorkspaceSettingsPage } from '@/features/workspace/pages/workspace-settings-page'

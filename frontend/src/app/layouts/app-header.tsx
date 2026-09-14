@@ -1,17 +1,44 @@
-import { Link } from '@tanstack/react-router'
-import { Bell, Menu, Moon, Palette, Search, Sun } from 'lucide-react'
+import { Link, useNavigate } from '@tanstack/react-router'
+import { useQueryClient } from '@tanstack/react-query'
+import { Bell, CircleUserRound, LogOut, Menu, Moon, Palette, Search, Sun } from 'lucide-react'
 import { useTheme } from 'next-themes'
+import { Popover } from 'radix-ui'
+import { useState } from 'react'
 
+import { logout } from '@/features/auth/api/session'
+import { useSession } from '@/features/auth/hooks/use-session'
+import { queryKeys } from '@/shared/api/query-keys'
 import { Button } from '@/shared/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/shared/components/ui/tooltip'
 import { useIsDesktop } from '@/shared/hooks/use-media-query'
 import { useUiStore } from '@/stores/ui-store'
+
+function userInitial(name?: string): string {
+  const trimmed = name?.trim()
+  return trimmed && trimmed.length > 0 ? trimmed.charAt(0).toUpperCase() : 'A'
+}
 
 export function AppHeader({ title }: { title?: string }) {
   const isDesktop = useIsDesktop()
   const setMobileNavOpen = useUiStore(state => state.setMobileNavOpen)
   const setCommandPaletteOpen = useUiStore(state => state.setCommandPaletteOpen)
   const { resolvedTheme, setTheme } = useTheme()
+  const { data: session } = useSession()
+  const queryClient = useQueryClient()
+  const navigate = useNavigate()
+  const [menuOpen, setMenuOpen] = useState(false)
+
+  async function handleLogout() {
+    setMenuOpen(false)
+    try {
+      await logout()
+    }
+    finally {
+      queryClient.setQueryData(queryKeys.auth.session(), null)
+      queryClient.removeQueries({ queryKey: queryKeys.auth.all() })
+      await navigate({ to: '/login' })
+    }
+  }
 
   return (
     <header className="sticky top-0 z-30 flex h-(--header-height) shrink-0 items-center gap-3 border-b border-border-subtle bg-background/90 px-4 backdrop-blur-lg md:px-5">
@@ -40,7 +67,7 @@ export function AppHeader({ title }: { title?: string }) {
         <Tooltip>
           <TooltipTrigger asChild>
             <Button variant="ghost" size="icon-sm" asChild>
-              <Link to="/app/settings" aria-label="外观设置"><Palette /></Link>
+              <Link to="/app/settings/appearance" aria-label="外观设置"><Palette /></Link>
             </Button>
           </TooltipTrigger>
           <TooltipContent>外观设置</TooltipContent>
@@ -67,7 +94,53 @@ export function AppHeader({ title }: { title?: string }) {
           </TooltipTrigger>
           <TooltipContent>{resolvedTheme === 'dark' ? '浅色主题' : '深色主题'}</TooltipContent>
         </Tooltip>
-        <span className="ml-1 grid size-8 place-items-center rounded-full border bg-primary-subtle text-xs font-semibold text-primary">A</span>
+        <Popover.Root open={menuOpen} onOpenChange={setMenuOpen}>
+          <Popover.Trigger asChild>
+            <button
+              type="button"
+              aria-label="账户菜单"
+              className="ml-1 grid size-8 place-items-center rounded-full border bg-primary-subtle text-xs font-semibold text-primary focus-visible:ring-2 focus-visible:ring-ring/30"
+            >
+              {userInitial(session?.user.name)}
+            </button>
+          </Popover.Trigger>
+          <Popover.Portal>
+            <Popover.Content
+              align="end"
+              sideOffset={8}
+              className="z-50 w-56 rounded-lg border bg-popover p-1.5 shadow-(--shadow-md) outline-none"
+            >
+              <div className="border-b border-border-subtle px-2.5 py-2">
+                <p className="truncate text-sm font-medium">{session?.user.name ?? '未登录'}</p>
+                <p className="truncate text-xs text-muted-foreground">{session?.user.email}</p>
+              </div>
+              <Link
+                to="/app/settings/profile"
+                onClick={() => setMenuOpen(false)}
+                className="mt-1 flex min-h-9 items-center gap-2 rounded-md px-2.5 text-xs hover:bg-surface-subtle focus-visible:ring-2 focus-visible:ring-ring/30"
+              >
+                <CircleUserRound className="size-3.5" />
+                个人资料
+              </Link>
+              <Link
+                to="/app/settings/appearance"
+                onClick={() => setMenuOpen(false)}
+                className="flex min-h-9 items-center gap-2 rounded-md px-2.5 text-xs hover:bg-surface-subtle focus-visible:ring-2 focus-visible:ring-ring/30"
+              >
+                <Palette className="size-3.5" />
+                设置
+              </Link>
+              <button
+                type="button"
+                onClick={() => void handleLogout()}
+                className="flex min-h-9 w-full items-center gap-2 rounded-md px-2.5 text-left text-xs text-destructive hover:bg-destructive/8 focus-visible:ring-2 focus-visible:ring-ring/30"
+              >
+                <LogOut className="size-3.5" />
+                退出登录
+              </button>
+            </Popover.Content>
+          </Popover.Portal>
+        </Popover.Root>
       </div>
     </header>
   )

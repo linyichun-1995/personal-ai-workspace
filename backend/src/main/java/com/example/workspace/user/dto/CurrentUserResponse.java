@@ -7,6 +7,9 @@ public record CurrentUserResponse(
         String email,
         String name,
         String avatarUrl,
+        String locale,
+        String timezone,
+        long version,
         WorkspaceResponse currentWorkspace
 ) {
 }

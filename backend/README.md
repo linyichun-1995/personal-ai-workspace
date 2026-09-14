@@ -21,6 +21,11 @@ cd backend
 | POST | `/api/v1/auth/refresh` | Public |
 | POST | `/api/v1/auth/logout` | Public（凭 Refresh Cookie 撤销） |
 | GET | `/api/v1/me` | Protected |
+| PATCH | `/api/v1/me` | Protected，更新资料 |
+| PUT | `/api/v1/me/password` | Protected，改密并作废其他会话 |
+| GET | `/api/v1/workspaces` | Protected |
+| GET | `/api/v1/workspaces/{workspaceId}` | Protected，非成员 404 |
+| PATCH | `/api/v1/workspaces/{workspaceId}` | Protected，仅 OWNER |
 | GET | `/actuator/health` | Public |
 
 成功响应直接返回资源 JSON，HTTP 状态码表示结果。失败响应：
@@ -38,9 +43,9 @@ cd backend
 
 ## 认证
 
-- Access Token：HS256 JWT，默认 15 分钟。claims：`sub=userId`、`email`、`tokenType=access`。只通过 JSON 返回，前端保存在内存。
-- Refresh Token：不透明随机串，SHA-256 后存 Redis，默认 30 天，刷新时轮换。通过 HttpOnly Cookie `refresh_token` 下发，JSON 不返回明文。
-- 密码：Argon2，不写明文
+- Access Token：HS256 JWT，默认 15 分钟。claims：`sub=userId`、`email`、`tokenType=access`、`ver=tokenEpoch`。只通过 JSON 返回，前端保存在内存。
+- Refresh Token：不透明随机串，SHA-256 后存 Redis，默认 30 天，刷新时轮换。通过 HttpOnly Cookie `refresh_token` 下发，JSON 不返回明文。按用户索引，改密时撤销全部 family。
+- 密码：Argon2，不写明文。修改密码会递增 token epoch，旧 Access Token 立即失效。
 - 业务代码通过 `CurrentUser` / `CurrentUserProvider` 取 `userId` 和 `email`，不要自己解析 JWT
 - Workspace 不写入 JWT，按当前用户从数据库读取默认工作空间
 

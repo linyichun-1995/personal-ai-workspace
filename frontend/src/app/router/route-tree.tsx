@@ -14,7 +14,7 @@ import { NoteDetailPage, NotesPage } from '@/features/note'
 import { ProjectDetailPage, ProjectsPage } from '@/features/project'
 import { SearchPage } from '@/features/search'
 import { TasksPage } from '@/features/task'
-import { DashboardPage, SettingsPage } from '@/features/workspace'
+import { DashboardPage, AppearanceSettingsPage, ProfileSettingsPage, SecuritySettingsPage, SettingsLayout, WorkspaceSettingsPage } from '@/features/workspace'
 
 export const rootRoute = createRootRouteWithContext<RouterContext>()({
   component: RootLayout,
@@ -183,7 +183,39 @@ const integrationsRoute = createRoute({
 const settingsRoute = createRoute({
   getParentRoute: () => appRoute,
   path: 'settings',
-  component: SettingsPage,
+  component: SettingsLayout,
+})
+
+const settingsIndexRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: '/',
+  beforeLoad: () => {
+    throw redirect({ to: '/app/settings/appearance' })
+  },
+})
+
+const settingsAppearanceRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: 'appearance',
+  component: AppearanceSettingsPage,
+})
+
+const settingsProfileRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: 'profile',
+  component: ProfileSettingsPage,
+})
+
+const settingsWorkspaceRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: 'workspace',
+  component: WorkspaceSettingsPage,
+})
+
+const settingsSecurityRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: 'security',
+  component: SecuritySettingsPage,
 })
 
 export const routeTree = rootRoute.addChildren([
@@ -209,6 +241,12 @@ export const routeTree = rootRoute.addChildren([
     aiAgentsRoute,
     aiChatRoute,
     integrationsRoute,
-    settingsRoute,
+    settingsRoute.addChildren([
+      settingsIndexRoute,
+      settingsAppearanceRoute,
+      settingsProfileRoute,
+      settingsWorkspaceRoute,
+      settingsSecurityRoute,
+    ]),
   ]),
 ])

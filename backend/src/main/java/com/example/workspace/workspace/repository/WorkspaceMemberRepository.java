@@ -8,6 +8,7 @@ import com.example.workspace.workspace.domain.WorkspaceRole;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.jooq.DSLContext;
@@ -42,6 +43,20 @@ public class WorkspaceMemberRepository {
                 .orderBy(field("joined_at").asc())
                 .limit(1)
                 .fetchOptional(this::toMember);
+    }
+
+    public Optional<WorkspaceMember> findByWorkspaceIdAndUserId(UUID workspaceId, UUID userId) {
+        return dsl.selectFrom(WORKSPACE_MEMBERS)
+                .where(field("workspace_id", UUID.class).eq(workspaceId))
+                .and(field("user_id", UUID.class).eq(userId))
+                .fetchOptional(this::toMember);
+    }
+
+    public List<WorkspaceMember> findAllByUserId(UUID userId) {
+        return dsl.selectFrom(WORKSPACE_MEMBERS)
+                .where(field("user_id", UUID.class).eq(userId))
+                .orderBy(field("joined_at").asc())
+                .fetch(this::toMember);
     }
 
     private WorkspaceMember toMember(Record record) {

@@ -17,6 +17,7 @@ public class JwtService {
 
     public static final String CLAIM_EMAIL = "email";
     public static final String CLAIM_TOKEN_TYPE = "tokenType";
+    public static final String CLAIM_TOKEN_EPOCH = "ver";
     public static final String ACCESS_TOKEN_TYPE = "access";
     public static final String ISSUER = "ai-personal-workspace";
 
@@ -28,7 +29,7 @@ public class JwtService {
         this.appProperties = appProperties;
     }
 
-    public IssuedAccessToken issueAccessToken(CurrentUser user) {
+    public IssuedAccessToken issueAccessToken(CurrentUser user, long tokenEpoch) {
         Instant issuedAt = Instant.now();
         Instant expiresAt = issuedAt.plus(appProperties.security().jwt().accessTokenTtl());
 
@@ -40,6 +41,7 @@ public class JwtService {
                 .expiresAt(expiresAt)
                 .claim(CLAIM_EMAIL, user.email())
                 .claim(CLAIM_TOKEN_TYPE, ACCESS_TOKEN_TYPE)
+                .claim(CLAIM_TOKEN_EPOCH, tokenEpoch)
                 .build();
 
         Jwt jwt = jwtEncoder.encode(JwtEncoderParameters.from(

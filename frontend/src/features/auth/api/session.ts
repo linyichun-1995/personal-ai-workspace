@@ -15,7 +15,12 @@ export async function login(input: { email: string, password: string }): Promise
   return storeSession(await api.post<AuthResponse>('/v1/auth/login', input))
 }
 
-export async function register(input: { name: string, email: string, password: string }): Promise<Session> {
+export async function register(input: {
+  name: string
+  email: string
+  password: string
+  timezone?: string
+}): Promise<Session> {
   return storeSession(await api.post<AuthResponse>('/v1/auth/register', input))
 }
 
@@ -30,6 +35,23 @@ export async function logout(): Promise<void> {
 
 export async function getCurrentUser(): Promise<CurrentUserResponse> {
   return api.get<CurrentUserResponse>('/v1/me')
+}
+
+export async function updateProfile(input: {
+  displayName: string
+  avatarUrl: string | null
+  locale: string
+  timezone: string
+  version: number
+}): Promise<CurrentUserResponse> {
+  return api.patch<CurrentUserResponse>('/v1/me', input)
+}
+
+export async function changePassword(input: {
+  currentPassword: string
+  newPassword: string
+}): Promise<Session> {
+  return storeSession(await api.put<AuthResponse>('/v1/me/password', input))
 }
 
 export async function restoreSession(): Promise<Session | null> {

@@ -28,5 +28,8 @@ export interface CurrentUserResponse {
   email: string
   name: string
   avatarUrl: string | null
+  locale: string
+  timezone: string
+  version: number
   currentWorkspace: AuthWorkspace
 }

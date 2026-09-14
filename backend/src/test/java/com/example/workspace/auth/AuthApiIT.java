@@ -78,7 +78,10 @@ class AuthApiIT {
                 .andExpect(jsonPath("$.name").value("Ada"))
                 .andExpect(jsonPath("$.avatarUrl").value(org.hamcrest.Matchers.nullValue()))
                 .andExpect(jsonPath("$.currentWorkspace.id").value(registered.body.get("workspace").get("id").asText()))
-                .andExpect(jsonPath("$.currentWorkspace.name").value("我的工作空间"));
+                .andExpect(jsonPath("$.currentWorkspace.name").value("我的工作空间"))
+                .andExpect(jsonPath("$.locale").value("zh-CN"))
+                .andExpect(jsonPath("$.timezone").value("UTC"))
+                .andExpect(jsonPath("$.version").value(0));
     }
 
     @Test

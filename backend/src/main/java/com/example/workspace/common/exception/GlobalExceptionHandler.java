@@ -13,6 +13,7 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -61,6 +62,13 @@ public class GlobalExceptionHandler {
         log.warn("Access denied: {}", exception.getMessage());
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(toBody(ErrorCode.FORBIDDEN, "Access denied", List.of()));
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ErrorResponse> handleMethodNotSupported(HttpRequestMethodNotSupportedException exception) {
+        log.warn("Method not supported: {}", exception.getMessage());
+        return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED)
+                .body(toBody(ErrorCode.VALIDATION_ERROR, "HTTP method not supported", List.of()));
     }
 
     @ExceptionHandler(Exception.class)

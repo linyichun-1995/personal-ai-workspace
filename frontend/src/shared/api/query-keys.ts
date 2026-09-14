@@ -2,6 +2,7 @@ export const queryKeys = {
   auth: {
     all: () => ['auth'] as const,
     session: () => ['auth', 'session'] as const,
+    me: () => ['auth', 'me'] as const,
   },
   workspace: {
     all: () => ['workspaces'] as const,
