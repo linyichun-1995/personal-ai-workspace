@@ -14,14 +14,22 @@ public class UnauthorizedException extends AppException {
     }
 
     public static UnauthorizedException invalidCredentials() {
-        return new UnauthorizedException(ErrorCode.AUTH_INVALID_CREDENTIALS, "Invalid email or password");
+        return new UnauthorizedException(ErrorCode.AUTH_INVALID_CREDENTIALS, "邮箱或密码错误");
     }
 
     public static UnauthorizedException invalidToken() {
-        return new UnauthorizedException("Authentication required");
+        return new UnauthorizedException(ErrorCode.AUTH_TOKEN_INVALID, "令牌无效");
+    }
+
+    public static UnauthorizedException tokenExpired() {
+        return new UnauthorizedException(ErrorCode.AUTH_TOKEN_EXPIRED, "令牌已过期");
+    }
+
+    public static UnauthorizedException refreshTokenInvalid() {
+        return new UnauthorizedException(ErrorCode.AUTH_REFRESH_TOKEN_INVALID, "刷新令牌无效");
     }
 
     public static UnauthorizedException accountDisabled() {
-        return new UnauthorizedException(ErrorCode.AUTH_ACCOUNT_DISABLED, "Account is disabled");
+        return new UnauthorizedException(ErrorCode.AUTH_ACCOUNT_DISABLED, "账号已禁用");
     }
 }

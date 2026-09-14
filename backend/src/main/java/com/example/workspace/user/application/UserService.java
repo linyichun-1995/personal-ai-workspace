@@ -4,7 +4,7 @@ import com.example.workspace.common.exception.ResourceNotFoundException;
 import com.example.workspace.common.security.CurrentUser;
 import com.example.workspace.user.domain.User;
 import com.example.workspace.user.dto.CurrentUserResponse;
-import com.example.workspace.user.dto.WorkspaceSummaryResponse;
+import com.example.workspace.user.dto.WorkspaceResponse;
 import com.example.workspace.user.repository.UserRepository;
 import com.example.workspace.workspace.application.WorkspaceService;
 import com.example.workspace.workspace.domain.Workspace;
@@ -26,14 +26,13 @@ public class UserService {
     public CurrentUserResponse me(CurrentUser currentUser) {
         User user = userRepository.findById(currentUser.userId())
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-        Workspace workspace = workspaceService.requireById(currentUser.workspaceId());
+        Workspace workspace = workspaceService.requireDefaultForUser(currentUser.userId());
         return new CurrentUserResponse(
                 user.id(),
                 user.email(),
                 user.displayName(),
-                user.locale(),
-                user.timezone(),
-                new WorkspaceSummaryResponse(workspace.id(), workspace.name(), workspace.slug(), workspace.timezone())
+                user.avatarUrl(),
+                new WorkspaceResponse(workspace.id(), workspace.name())
         );
     }
 }

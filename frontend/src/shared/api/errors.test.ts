@@ -32,6 +32,16 @@ describe('parseApiErrorBody', () => {
       traceId: 'abc',
     })
   })
+
+  it('reads requestId from the backend error payload', () => {
+    const parsed = parseApiErrorBody({
+      code: 'AUTH_INVALID_CREDENTIALS',
+      message: '邮箱或密码错误',
+      requestId: 'req-1',
+    })
+
+    expect(parsed?.traceId).toBe('req-1')
+  })
 })
 
 describe('toErrorMessage', () => {

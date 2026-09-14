@@ -46,6 +46,15 @@ describe('authMotionController', () => {
     expect(repeated).not.toHaveBeenCalled()
   })
 
+  it('moves from submitting to error without losing the chance to retry', () => {
+    expect(controller.beginSubmit()).toBe(true)
+    expect(controller.beginSubmit()).toBe(false)
+    controller.fail()
+    expect(controller.getSnapshot().state).toBe('error')
+    vi.advanceTimersByTime(motionTiming.error)
+    expect(controller.getSnapshot().state).toBe('login')
+  })
+
   it('holds an error through validation focus and cancels recovery when the mode changes', () => {
     controller.error()
     controller.focus('email')

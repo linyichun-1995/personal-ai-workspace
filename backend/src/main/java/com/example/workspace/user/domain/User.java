@@ -15,6 +15,7 @@ public record User(
         UserStatus status,
         Instant createdAt,
         Instant updatedAt,
+        Instant lastLoginAt,
         long version
 ) {
 }

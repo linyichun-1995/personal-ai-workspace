@@ -39,6 +39,7 @@ public class UserRepository {
                 .set(field("status"), user.status().name())
                 .set(field("created_at"), toOffset(user.createdAt()))
                 .set(field("updated_at"), toOffset(user.updatedAt()))
+                .set(field("last_login_at"), user.lastLoginAt() == null ? null : toOffset(user.lastLoginAt()))
                 .set(field("version"), user.version())
                 .execute();
     }
@@ -61,6 +62,14 @@ public class UserRepository {
         );
     }
 
+    public void updateLastLoginAt(UUID userId, Instant lastLoginAt) {
+        dsl.update(USERS)
+                .set(field("last_login_at"), toOffset(lastLoginAt))
+                .set(field("updated_at"), toOffset(lastLoginAt))
+                .where(field("id", UUID.class).eq(userId))
+                .execute();
+    }
+
     private User toUser(Record record) {
         return new User(
                 record.get("id", UUID.class),
@@ -74,12 +83,20 @@ public class UserRepository {
                 UserStatus.valueOf(record.get("status", String.class)),
                 toInstant(record.get("created_at")),
                 toInstant(record.get("updated_at")),
+                toInstantOrNull(record.get("last_login_at")),
                 record.get("version", Number.class).longValue()
         );
     }
 
     private static OffsetDateTime toOffset(Instant instant) {
         return instant.atOffset(ZoneOffset.UTC);
+    }
+
+    private static Instant toInstantOrNull(Object value) {
+        if (value == null) {
+            return null;
+        }
+        return toInstant(value);
     }
 
     private static Instant toInstant(Object value) {

@@ -1,6 +1,6 @@
 package com.example.workspace.auth.application;
 
-import com.example.workspace.auth.dto.TokenResponse;
+import com.example.workspace.auth.dto.IssuedTokens;
 import com.example.workspace.common.security.CurrentUser;
 import com.example.workspace.common.util.UuidV7;
 import com.example.workspace.infrastructure.config.AppProperties;
@@ -8,7 +8,9 @@ import com.example.workspace.infrastructure.redis.RefreshSession;
 import com.example.workspace.infrastructure.redis.RefreshTokenStore;
 import com.example.workspace.infrastructure.security.JwtService;
 import java.security.SecureRandom;
+import java.time.Instant;
 import java.util.Base64;
+import java.util.UUID;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -30,28 +32,39 @@ public class TokenIssuer {
         this.appProperties = appProperties;
     }
 
-    public TokenResponse issue(CurrentUser user) {
-        return issue(user, UuidV7.next().toString());
+    public IssuedTokens issue(CurrentUser user) {
+        return issue(user, UuidV7.next());
     }
 
-    public TokenResponse rotate(CurrentUser user, String familyId, String previousRefreshToken) {
-        refreshTokenStore.delete(previousRefreshToken);
+    public IssuedTokens rotate(CurrentUser user, UUID familyId, String previousRefreshToken) {
+        refreshTokenStore.revoke(previousRefreshToken);
         return issue(user, familyId);
     }
 
     public void revoke(String refreshToken) {
-        refreshTokenStore.delete(refreshToken);
+        refreshTokenStore.revoke(refreshToken);
     }
 
-    private TokenResponse issue(CurrentUser user, String familyId) {
+    public void revokeFamily(UUID familyId) {
+        refreshTokenStore.revokeFamily(familyId);
+    }
+
+    private IssuedTokens issue(CurrentUser user, UUID familyId) {
         JwtService.IssuedAccessToken accessToken = jwtService.issueAccessToken(user);
         String refreshToken = newRefreshToken();
+        Instant now = Instant.now();
         refreshTokenStore.save(
                 refreshToken,
-                new RefreshSession(user.userId(), user.workspaceId(), user.email(), familyId),
+                new RefreshSession(
+                        user.userId(),
+                        user.email(),
+                        familyId,
+                        now.plus(appProperties.security().jwt().refreshTokenTtl()),
+                        false
+                ),
                 appProperties.security().jwt().refreshTokenTtl()
         );
-        return TokenResponse.bearer(accessToken.value(), refreshToken, accessToken.expiresInSeconds());
+        return IssuedTokens.bearer(accessToken.value(), refreshToken, accessToken.expiresInSeconds());
     }
 
     private static String newRefreshToken() {

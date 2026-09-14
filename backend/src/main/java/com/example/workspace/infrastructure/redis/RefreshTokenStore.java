@@ -1,20 +1,21 @@
 package com.example.workspace.infrastructure.redis;
 
-import tools.jackson.core.JacksonException;
-import tools.jackson.databind.json.JsonMapper;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
+import com.example.workspace.common.util.TokenHashes;
 import java.time.Duration;
-import java.util.HexFormat;
+import java.time.Instant;
 import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Repository;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.json.JsonMapper;
 
 @Repository
 public class RefreshTokenStore {
 
     private static final String KEY_PREFIX = "auth:refresh:";
+    private static final String FAMILY_PREFIX = "auth:refresh-family:";
 
     private final StringRedisTemplate redis;
     private final JsonMapper jsonMapper;
@@ -25,23 +26,52 @@ public class RefreshTokenStore {
     }
 
     public void save(String rawToken, RefreshSession session, Duration ttl) {
-        redis.opsForValue().set(key(rawToken), write(session), ttl);
+        String hash = TokenHashes.sha256(rawToken);
+        redis.opsForValue().set(tokenKey(hash), write(session), ttl);
+        String familyKey = familyKey(session.familyId());
+        redis.opsForSet().add(familyKey, hash);
+        redis.expire(familyKey, ttl);
     }
 
     public Optional<RefreshSession> find(String rawToken) {
-        String payload = redis.opsForValue().get(key(rawToken));
+        String payload = redis.opsForValue().get(tokenKey(TokenHashes.sha256(rawToken)));
         if (payload == null) {
             return Optional.empty();
         }
         return Optional.of(read(payload));
     }
 
-    public void delete(String rawToken) {
-        redis.delete(key(rawToken));
+    public void revoke(String rawToken) {
+        find(rawToken).ifPresent(session -> overwrite(rawToken, session.revoke()));
     }
 
-    private String key(String rawToken) {
-        return KEY_PREFIX + sha256(rawToken);
+    public void revokeFamily(UUID familyId) {
+        String familyKey = familyKey(familyId);
+        Set<String> hashes = redis.opsForSet().members(familyKey);
+        if (hashes != null) {
+            for (String hash : hashes) {
+                redis.delete(tokenKey(hash));
+            }
+        }
+        redis.delete(familyKey);
+    }
+
+    public void expire(String rawToken) {
+        find(rawToken).ifPresent(session -> overwrite(rawToken, session.expireAt(Instant.now().minusSeconds(60))));
+    }
+
+    private void overwrite(String rawToken, RefreshSession session) {
+        String key = tokenKey(TokenHashes.sha256(rawToken));
+        Long ttlSeconds = redis.getExpire(key);
+        if (ttlSeconds == null || ttlSeconds == -2) {
+            redis.delete(key);
+            return;
+        }
+        if (ttlSeconds < 0) {
+            redis.opsForValue().set(key, write(session));
+            return;
+        }
+        redis.opsForValue().set(key, write(session), Duration.ofSeconds(ttlSeconds));
     }
 
     private String write(RefreshSession session) {
@@ -62,13 +92,11 @@ public class RefreshTokenStore {
         }
     }
 
-    private static String sha256(String value) {
-        try {
-            byte[] digest = MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(digest);
-        }
-        catch (NoSuchAlgorithmException exception) {
-            throw new IllegalStateException(exception);
-        }
+    private static String tokenKey(String hash) {
+        return KEY_PREFIX + hash;
+    }
+
+    private static String familyKey(UUID familyId) {
+        return FAMILY_PREFIX + familyId;
     }
 }

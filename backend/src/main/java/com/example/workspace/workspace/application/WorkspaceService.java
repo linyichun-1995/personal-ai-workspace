@@ -14,6 +14,8 @@ import org.springframework.stereotype.Service;
 @Service
 public class WorkspaceService {
 
+    public static final String DEFAULT_PERSONAL_WORKSPACE_NAME = "我的工作空间";
+
     private final WorkspaceRepository workspaceRepository;
     private final WorkspaceMemberRepository workspaceMemberRepository;
 
@@ -25,11 +27,11 @@ public class WorkspaceService {
         this.workspaceMemberRepository = workspaceMemberRepository;
     }
 
-    public Workspace createPersonalWorkspace(UUID userId, String displayName, String timezone, Instant now) {
+    public Workspace createPersonalWorkspace(UUID userId, String timezone, Instant now) {
         UUID workspaceId = UuidV7.next();
         Workspace workspace = new Workspace(
                 workspaceId,
-                displayName + "'s Workspace",
+                DEFAULT_PERSONAL_WORKSPACE_NAME,
                 "personal-" + workspaceId.toString().replace("-", "").substring(0, 12),
                 WorkspaceType.PERSONAL,
                 timezone,

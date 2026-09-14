@@ -10,6 +10,6 @@ public class ConflictException extends AppException {
     }
 
     public static ConflictException emailTaken() {
-        return new ConflictException(ErrorCode.AUTH_EMAIL_TAKEN, "Email is already registered");
+        return new ConflictException(ErrorCode.AUTH_EMAIL_ALREADY_EXISTS, "该邮箱已注册");
     }
 }

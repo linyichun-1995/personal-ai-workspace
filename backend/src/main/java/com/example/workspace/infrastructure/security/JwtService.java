@@ -15,10 +15,10 @@ import org.springframework.stereotype.Service;
 @Service
 public class JwtService {
 
-    public static final String CLAIM_WORKSPACE_ID = "workspaceId";
     public static final String CLAIM_EMAIL = "email";
     public static final String CLAIM_TOKEN_TYPE = "tokenType";
     public static final String ACCESS_TOKEN_TYPE = "access";
+    public static final String ISSUER = "ai-personal-workspace";
 
     private final JwtEncoder jwtEncoder;
     private final AppProperties appProperties;
@@ -34,11 +34,10 @@ public class JwtService {
 
         JwtClaimsSet claims = JwtClaimsSet.builder()
                 .id(UUID.randomUUID().toString())
-                .issuer("ai-personal-workspace")
+                .issuer(ISSUER)
                 .subject(user.userId().toString())
                 .issuedAt(issuedAt)
                 .expiresAt(expiresAt)
-                .claim(CLAIM_WORKSPACE_ID, user.workspaceId().toString())
                 .claim(CLAIM_EMAIL, user.email())
                 .claim(CLAIM_TOKEN_TYPE, ACCESS_TOKEN_TYPE)
                 .build();

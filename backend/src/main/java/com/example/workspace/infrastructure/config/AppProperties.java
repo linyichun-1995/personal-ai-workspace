@@ -19,12 +19,28 @@ public record AppProperties(
     }
 
     public record Security(
-            Jwt jwt
+            Jwt jwt,
+            LoginRateLimit loginRateLimit,
+            RefreshCookie refreshCookie
     ) {
         public record Jwt(
                 String secret,
                 Duration accessTokenTtl,
                 Duration refreshTokenTtl
+        ) {
+        }
+
+        public record LoginRateLimit(
+                int limit,
+                Duration window
+        ) {
+        }
+
+        public record RefreshCookie(
+                String name,
+                String path,
+                boolean secure,
+                String sameSite
         ) {
         }
     }

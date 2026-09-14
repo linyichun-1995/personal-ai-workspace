@@ -43,7 +43,6 @@ public class JwtConfig {
     public static CurrentUser toCurrentUser(org.springframework.security.oauth2.jwt.Jwt jwt) {
         return new CurrentUser(
                 UUID.fromString(jwt.getSubject()),
-                UUID.fromString(jwt.getClaimAsString(JwtService.CLAIM_WORKSPACE_ID)),
                 jwt.getClaimAsString(JwtService.CLAIM_EMAIL)
         );
     }

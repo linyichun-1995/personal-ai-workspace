@@ -29,7 +29,9 @@ dependencies {
     // Schema migrations
     implementation("org.springframework.boot:spring-boot-starter-flyway")
     implementation("org.flywaydb:flyway-database-postgresql")
-    // Refresh token / cache
+    // Argon2 password hashing
+    implementation("org.bouncycastle:bcprov-jdk18on:1.82")
+    // Refresh token store
     implementation("org.springframework.boot:spring-boot-starter-data-redis")
     // Health probes
     implementation("org.springframework.boot:spring-boot-starter-actuator")

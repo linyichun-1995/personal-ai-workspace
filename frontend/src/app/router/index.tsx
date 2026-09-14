@@ -3,6 +3,7 @@ import { createRouter, RouterProvider } from '@tanstack/react-router'
 import { useEffect } from 'react'
 
 import { routeTree } from '@/app/router/route-tree'
+import { clearAccessToken } from '@/features/auth/api/token-store'
 import { setAuthExpiredHandler } from '@/shared/api'
 import { queryKeys } from '@/shared/api/query-keys'
 
@@ -26,6 +27,8 @@ export function AppRouter() {
 
   useEffect(() => {
     setAuthExpiredHandler(() => {
+      clearAccessToken()
+      queryClient.setQueryData(queryKeys.auth.session(), null)
       queryClient.removeQueries({ queryKey: queryKeys.auth.all() })
       void router.navigate({ to: '/login' })
     })

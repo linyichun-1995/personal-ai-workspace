@@ -1,17 +1,20 @@
 import type { HttpMethod, QueryParams } from '@/shared/types/api'
 import { env } from '@/app/config/env'
 import { ApiError, parseApiErrorBody } from '@/shared/api/errors'
+import { clearAccessToken, getAccessToken, setAccessToken } from '@/features/auth/api/token-store'
 
 export interface ApiRequestOptions extends Omit<RequestInit, 'body' | 'method'> {
   method?: HttpMethod
   body?: unknown
   query?: QueryParams
   parseJson?: boolean
+  skipAuthRefresh?: boolean
 }
 
 type AuthExpiredHandler = () => void
 
 let authExpiredHandler: AuthExpiredHandler | null = null
+let refreshPromise: Promise<string> | null = null
 
 export function setAuthExpiredHandler(handler: AuthExpiredHandler | null): void {
   authExpiredHandler = handler
@@ -55,6 +58,11 @@ function resolveHeaders(body: unknown, headers?: HeadersInit): Headers {
     resolved.set('Content-Type', 'application/json')
   }
 
+  const accessToken = getAccessToken()
+  if (accessToken && !resolved.has('Authorization')) {
+    resolved.set('Authorization', `Bearer ${accessToken}`)
+  }
+
   return resolved
 }
 
@@ -74,8 +82,12 @@ function serializeBody(body: unknown): BodyInit | undefined {
   return JSON.stringify(body)
 }
 
+function isAuthSessionPath(path: string): boolean {
+  return /\/v1\/auth\/(login|register|refresh|logout)\/?$/.test(path)
+}
+
 async function readError(response: Response): Promise<ApiError> {
-  const traceId = response.headers.get('x-trace-id') ?? undefined
+  const traceId = response.headers.get('x-trace-id') ?? response.headers.get('x-request-id') ?? undefined
 
   try {
     const payload: unknown = await response.json()
@@ -103,6 +115,45 @@ async function readError(response: Response): Promise<ApiError> {
   })
 }
 
+async function refreshAccessToken(): Promise<string> {
+  if (refreshPromise) {
+    return refreshPromise
+  }
+
+  refreshPromise = (async () => {
+    const response = await fetch(joinUrl(env.apiBaseUrl, '/v1/auth/refresh'), {
+      method: 'POST',
+      credentials: 'include',
+      headers: { Accept: 'application/json' },
+    })
+
+    if (!response.ok) {
+      throw await readError(response)
+    }
+
+    const payload = await response.json() as { accessToken?: unknown }
+    if (typeof payload.accessToken !== 'string' || payload.accessToken.length === 0) {
+      throw new ApiError({
+        status: 401,
+        code: 'AUTH_REFRESH_TOKEN_INVALID',
+        message: '刷新令牌无效',
+      })
+    }
+
+    setAccessToken(payload.accessToken)
+    return payload.accessToken
+  })().finally(() => {
+    refreshPromise = null
+  })
+
+  return refreshPromise
+}
+
+function expireSession(): void {
+  clearAccessToken()
+  authExpiredHandler?.()
+}
+
 export async function apiClient<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
   const {
     method = 'GET',
@@ -110,6 +161,7 @@ export async function apiClient<T>(path: string, options: ApiRequestOptions = {}
     query,
     headers,
     parseJson = true,
+    skipAuthRefresh = false,
     ...rest
   } = options
 
@@ -121,11 +173,21 @@ export async function apiClient<T>(path: string, options: ApiRequestOptions = {}
     credentials: 'include',
   })
 
-  if (response.status === 401) {
-    authExpiredHandler?.()
+  if (response.status === 401 && !skipAuthRefresh && !isAuthSessionPath(path)) {
+    try {
+      await refreshAccessToken()
+      return apiClient<T>(path, { ...options, skipAuthRefresh: true })
+    }
+    catch {
+      expireSession()
+      throw await readError(response)
+    }
   }
 
   if (!response.ok) {
+    if (response.status === 401 && !isAuthSessionPath(path)) {
+      expireSession()
+    }
     throw await readError(response)
   }
 

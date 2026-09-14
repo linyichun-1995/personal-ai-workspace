@@ -113,12 +113,34 @@ export class AuthMotionController {
 
   get busy() { return this.snapshot.state === 'submitting' || this.snapshot.state === 'success' }
 
+  beginSubmit() {
+    if (this.busy)
+      return false
+    this.clearSequence()
+    this.update({ state: 'submitting', step: 0, exiting: false })
+    for (let step = 1; step < reconnectSteps.length; step++) {
+      this.schedule(() => this.update({ step }), step * motionTiming.step)
+    }
+    return true
+  }
+
+  succeed(onComplete: () => void) {
+    this.clearSequence()
+    this.update({ state: 'success', step: 5, exiting: false })
+    this.schedule(() => this.update({ exiting: true }), motionTiming.successHold)
+    this.schedule(onComplete, motionTiming.successHold + motionTiming.exit)
+  }
+
+  fail() {
+    this.clearSequence()
+    this.update({ state: 'error', step: -1, exiting: false })
+    this.errorTimer = this.schedule(() => this.update({ state: this.snapshot.mode }), motionTiming.error)
+  }
+
   error() {
     if (this.busy)
       return
-    this.clearSequence()
-    this.update({ state: 'error', step: -1 })
-    this.errorTimer = this.schedule(() => this.update({ state: this.snapshot.mode }), motionTiming.error)
+    this.fail()
   }
 
   edited() {
@@ -133,16 +155,9 @@ export class AuthMotionController {
 
   /** A deterministic local preview, not authentication or simulated server data. */
   submit(onComplete: () => void) {
-    if (this.busy)
+    if (!this.beginSubmit())
       return
-    this.clearSequence()
-    this.update({ state: 'submitting', step: 0, exiting: false })
-    for (let step = 1; step < reconnectSteps.length; step++) {
-      this.schedule(() => this.update({ step }), step * motionTiming.step)
-    }
-    this.schedule(() => this.update({ state: 'success', step: 5 }), motionTiming.reconnect)
-    this.schedule(() => this.update({ exiting: true }), motionTiming.reconnect + motionTiming.successHold)
-    this.schedule(onComplete, motionTiming.reconnect + motionTiming.successHold + motionTiming.exit)
+    this.schedule(() => this.succeed(onComplete), motionTiming.reconnect)
   }
 }
 

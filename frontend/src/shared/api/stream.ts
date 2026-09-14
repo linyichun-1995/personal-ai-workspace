@@ -1,5 +1,6 @@
 import type { QueryParams } from '@/shared/types/api'
 import { env } from '@/app/config/env'
+import { getAccessToken } from '@/features/auth/api/token-store'
 import { ApiError } from '@/shared/api/errors'
 
 export interface StreamEvent<T = unknown> {
@@ -81,11 +82,13 @@ export async function consumeSseStream<T = unknown>(
   const normalizedPath = path.startsWith('/') ? path : `/${path}`
   const url = `${env.apiBaseUrl}${normalizedPath}${toSearch(options.query)}`
 
+  const token = getAccessToken()
   const response = await fetch(url, {
     method: 'GET',
     credentials: 'include',
     headers: {
       Accept: 'text/event-stream',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options.headers,
     },
     signal: options.signal,

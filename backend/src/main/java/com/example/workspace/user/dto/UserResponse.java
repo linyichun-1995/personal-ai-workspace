@@ -2,10 +2,10 @@ package com.example.workspace.user.dto;
 
 import java.util.UUID;
 
-public record WorkspaceSummaryResponse(
+public record UserResponse(
         UUID id,
+        String email,
         String name,
-        String slug,
-        String timezone
+        String avatarUrl
 ) {
 }

@@ -1,8 +1,9 @@
 package com.example.workspace.auth.application;
 
+import com.example.workspace.auth.dto.AuthResponse;
+import com.example.workspace.auth.dto.IssuedTokens;
 import com.example.workspace.auth.dto.LoginRequest;
 import com.example.workspace.auth.dto.RegisterRequest;
-import com.example.workspace.auth.dto.TokenResponse;
 import com.example.workspace.common.exception.ConflictException;
 import com.example.workspace.common.exception.UnauthorizedException;
 import com.example.workspace.common.security.CurrentUser;
@@ -12,6 +13,8 @@ import com.example.workspace.infrastructure.redis.RefreshSession;
 import com.example.workspace.infrastructure.redis.RefreshTokenStore;
 import com.example.workspace.user.domain.User;
 import com.example.workspace.user.domain.UserStatus;
+import com.example.workspace.user.dto.UserResponse;
+import com.example.workspace.user.dto.WorkspaceResponse;
 import com.example.workspace.user.repository.UserRepository;
 import com.example.workspace.workspace.application.WorkspaceService;
 import com.example.workspace.workspace.domain.Workspace;
@@ -29,49 +32,48 @@ public class AuthService {
     private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
     private final UserRepository userRepository;
+    private final RefreshTokenStore refreshTokenStore;
     private final WorkspaceService workspaceService;
     private final PasswordEncoder passwordEncoder;
     private final TokenIssuer tokenIssuer;
-    private final RefreshTokenStore refreshTokenStore;
 
     public AuthService(
             UserRepository userRepository,
+            RefreshTokenStore refreshTokenStore,
             WorkspaceService workspaceService,
             PasswordEncoder passwordEncoder,
-            TokenIssuer tokenIssuer,
-            RefreshTokenStore refreshTokenStore
+            TokenIssuer tokenIssuer
     ) {
         this.userRepository = userRepository;
+        this.refreshTokenStore = refreshTokenStore;
         this.workspaceService = workspaceService;
         this.passwordEncoder = passwordEncoder;
         this.tokenIssuer = tokenIssuer;
-        this.refreshTokenStore = refreshTokenStore;
     }
 
     @Transactional
-    public TokenResponse register(RegisterRequest request) {
+    public AuthSession register(RegisterRequest request) {
         String emailNormalized = Emails.normalize(request.email());
         if (userRepository.existsByNormalizedEmail(emailNormalized)) {
             throw ConflictException.emailTaken();
         }
 
         Instant now = Instant.now();
-        String displayName = resolveDisplayName(request, emailNormalized);
-        String locale = request.locale() == null || request.locale().isBlank() ? "zh-CN" : request.locale();
-        String timezone = request.timezone() == null || request.timezone().isBlank() ? "UTC" : request.timezone();
+        String name = request.name().trim();
 
         User user = new User(
                 UuidV7.next(),
-                request.email().trim(),
+                emailNormalized,
                 emailNormalized,
                 passwordEncoder.encode(request.password()),
-                displayName,
+                name,
                 null,
-                locale,
-                timezone,
+                "zh-CN",
+                "UTC",
                 UserStatus.ACTIVE,
                 now,
                 now,
+                null,
                 0
         );
 
@@ -82,13 +84,13 @@ public class AuthService {
             throw ConflictException.emailTaken();
         }
 
-        Workspace workspace = workspaceService.createPersonalWorkspace(user.id(), displayName, timezone, now);
+        Workspace workspace = workspaceService.createPersonalWorkspace(user.id(), user.timezone(), now);
         log.info("Registered user {} with workspace {}", user.id(), workspace.id());
-        return tokenIssuer.issue(new CurrentUser(user.id(), workspace.id(), user.email()));
+        return toSession(user, workspace, tokenIssuer.issue(new CurrentUser(user.id(), user.email())));
     }
 
-    @Transactional(readOnly = true)
-    public TokenResponse login(LoginRequest request) {
+    @Transactional
+    public AuthSession login(LoginRequest request) {
         String emailNormalized = Emails.normalize(request.email());
         User user = userRepository.findByNormalizedEmail(emailNormalized)
                 .orElseThrow(UnauthorizedException::invalidCredentials);
@@ -100,29 +102,53 @@ public class AuthService {
             throw UnauthorizedException.accountDisabled();
         }
 
+        Instant now = Instant.now();
+        userRepository.updateLastLoginAt(user.id(), now);
         Workspace workspace = workspaceService.requireDefaultForUser(user.id());
-        return tokenIssuer.issue(new CurrentUser(user.id(), workspace.id(), user.email()));
+        log.info("User {} logged in", user.id());
+        return toSession(user, workspace, tokenIssuer.issue(new CurrentUser(user.id(), user.email())));
     }
 
-    public TokenResponse refresh(String refreshToken) {
-        RefreshSession session = refreshTokenStore.find(refreshToken)
-                .orElseThrow(() -> new UnauthorizedException("Refresh token is invalid or expired"));
-        return tokenIssuer.rotate(
-                new CurrentUser(session.userId(), session.workspaceId(), session.email()),
-                session.familyId(),
-                refreshToken
-        );
-    }
+    public AuthSession refresh(String rawRefreshToken) {
+        RefreshSession stored = refreshTokenStore.find(rawRefreshToken)
+                .orElseThrow(UnauthorizedException::refreshTokenInvalid);
 
-    public void logout(String refreshToken) {
-        tokenIssuer.revoke(refreshToken);
-    }
-
-    private static String resolveDisplayName(RegisterRequest request, String emailNormalized) {
-        if (request.displayName() != null && !request.displayName().isBlank()) {
-            return request.displayName().trim();
+        if (stored.revoked()) {
+            tokenIssuer.revokeFamily(stored.familyId());
+            throw UnauthorizedException.refreshTokenInvalid();
         }
-        int at = emailNormalized.indexOf('@');
-        return at > 0 ? emailNormalized.substring(0, at) : emailNormalized;
+        if (stored.expired(Instant.now())) {
+            throw UnauthorizedException.tokenExpired();
+        }
+
+        User user = userRepository.findById(stored.userId())
+                .orElseThrow(UnauthorizedException::refreshTokenInvalid);
+        if (user.status() != UserStatus.ACTIVE) {
+            tokenIssuer.revokeFamily(stored.familyId());
+            throw UnauthorizedException.accountDisabled();
+        }
+
+        Workspace workspace = workspaceService.requireDefaultForUser(user.id());
+        IssuedTokens tokens = tokenIssuer.rotate(
+                new CurrentUser(user.id(), user.email()),
+                stored.familyId(),
+                rawRefreshToken
+        );
+        return toSession(user, workspace, tokens);
+    }
+
+    public void logout(String rawRefreshToken) {
+        tokenIssuer.revoke(rawRefreshToken);
+    }
+
+    private static AuthSession toSession(User user, Workspace workspace, IssuedTokens tokens) {
+        return new AuthSession(
+                AuthResponse.of(
+                        new UserResponse(user.id(), user.email(), user.displayName(), user.avatarUrl()),
+                        new WorkspaceResponse(workspace.id(), workspace.name()),
+                        tokens
+                ),
+                tokens.refreshToken()
+        );
     }
 }

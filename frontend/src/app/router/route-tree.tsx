@@ -41,6 +41,9 @@ const authLayoutRoute = createRoute({
 const loginRoute = createRoute({
   getParentRoute: () => authLayoutRoute,
   path: '/login',
+  validateSearch: (search: Record<string, unknown>): { redirect?: string } => ({
+    redirect: typeof search.redirect === 'string' ? search.redirect : undefined,
+  }),
   component: LoginPage,
 })
 

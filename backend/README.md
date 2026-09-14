@@ -19,8 +19,8 @@ cd backend
 | POST | `/api/v1/auth/register` | Public |
 | POST | `/api/v1/auth/login` | Public |
 | POST | `/api/v1/auth/refresh` | Public |
-| POST | `/api/v1/auth/logout` | Protected |
-| GET | `/api/v1/users/me` | Protected |
+| POST | `/api/v1/auth/logout` | Public（凭 Refresh Cookie 撤销） |
+| GET | `/api/v1/me` | Protected |
 | GET | `/actuator/health` | Public |
 
 成功响应直接返回资源 JSON，HTTP 状态码表示结果。失败响应：
@@ -28,7 +28,7 @@ cd backend
 ```json
 {
   "code": "AUTH_INVALID_CREDENTIALS",
-  "message": "Invalid email or password",
+  "message": "邮箱或密码错误",
   "details": [],
   "requestId": "..."
 }
@@ -38,12 +38,13 @@ cd backend
 
 ## 认证
 
-- Access Token：HS256 JWT，默认 15 分钟。claims：`sub=userId`、`workspaceId`、`email`、`tokenType=access`
-- Refresh Token：不透明随机串，SHA-256 后存 Redis，默认 14 天，刷新时轮换
-- 密码：BCrypt，不写明文
-- 业务代码通过 `CurrentUser` / `CurrentUserProvider` 取 `userId`、`workspaceId`，不要自己解析 JWT
+- Access Token：HS256 JWT，默认 15 分钟。claims：`sub=userId`、`email`、`tokenType=access`。只通过 JSON 返回，前端保存在内存。
+- Refresh Token：不透明随机串，SHA-256 后存 Redis，默认 30 天，刷新时轮换。通过 HttpOnly Cookie `refresh_token` 下发，JSON 不返回明文。
+- 密码：Argon2，不写明文
+- 业务代码通过 `CurrentUser` / `CurrentUserProvider` 取 `userId` 和 `email`，不要自己解析 JWT
+- Workspace 不写入 JWT，按当前用户从数据库读取默认工作空间
 
-CSRF：当前 Access Token 走 `Authorization: Bearer`，不使用 Cookie 会话，因此关闭 CSRF。如果以后把 Refresh Token 改成 HttpOnly Cookie，需要为对应接口重新打开 CSRF。
+CSRF：Access Token 走 `Authorization: Bearer`。Refresh Cookie 使用 HttpOnly + SameSite=Lax，跨站 POST 不会带上 Cookie。本地开发通过 Vite 把 `/api` 代理到后端，前后端对浏览器是同站。
 
 ## jOOQ
 

@@ -63,7 +63,11 @@ export function parseApiErrorBody(value: unknown): ApiErrorBody | null {
     code,
     message,
     details: nested.details,
-    traceId: typeof nested.traceId === 'string' ? nested.traceId : undefined,
+    traceId: typeof nested.traceId === 'string'
+      ? nested.traceId
+      : typeof nested.requestId === 'string'
+        ? nested.requestId
+        : undefined,
   }
 }
 

@@ -2,16 +2,30 @@ package com.example.workspace.auth;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.example.workspace.infrastructure.redis.RefreshTokenStore;
+import com.example.workspace.infrastructure.security.JwtService;
+import java.time.Instant;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockCookie;
+import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
+import org.springframework.security.oauth2.jwt.JwsHeader;
+import org.springframework.security.oauth2.jwt.JwtClaimsSet;
+import org.springframework.security.oauth2.jwt.JwtEncoder;
+import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.testcontainers.containers.GenericContainer;
@@ -19,8 +33,6 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -50,67 +62,41 @@ class AuthApiIT {
     @Autowired
     JsonMapper jsonMapper;
 
+    @Autowired
+    RefreshTokenStore refreshTokenStore;
+
+    @Autowired
+    JwtEncoder jwtEncoder;
+
     @Test
-    void registerLoginRefreshAndReadCurrentUser() throws Exception {
-        String registerBody = """
-                {
-                  "email": "ada@example.com",
-                  "password": "password123",
-                  "displayName": "Ada"
-                }
-                """;
+    void registerCreatesDefaultWorkspaceAndIssuesTokens() throws Exception {
+        RegisteredUser registered = register("Ada@Example.com", "password123", "Ada");
 
-        MvcResult registered = mockMvc.perform(post("/api/v1/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(registerBody))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.accessToken").isNotEmpty())
-                .andExpect(jsonPath("$.refreshToken").isNotEmpty())
-                .andExpect(jsonPath("$.tokenType").value("Bearer"))
-                .andReturn();
-
-        JsonNode tokens = jsonMapper.readTree(registered.getResponse().getContentAsString());
-        String accessToken = tokens.get("accessToken").asText();
-
-        mockMvc.perform(get("/api/v1/users/me").header("Authorization", "Bearer " + accessToken))
+        mockMvc.perform(get("/api/v1/me").header("Authorization", "Bearer " + registered.body.get("accessToken").asText()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.email").value("ada@example.com"))
-                .andExpect(jsonPath("$.displayName").value("Ada"))
-                .andExpect(jsonPath("$.workspace.id").isNotEmpty());
+                .andExpect(jsonPath("$.name").value("Ada"))
+                .andExpect(jsonPath("$.avatarUrl").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.currentWorkspace.id").value(registered.body.get("workspace").get("id").asText()))
+                .andExpect(jsonPath("$.currentWorkspace.name").value("我的工作空间"));
+    }
+
+    @Test
+    void loginSucceedsAndRejectsUnknownOrWrongPassword() throws Exception {
+        register("grace@example.com", "password123", "Grace");
 
         mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"email":"ada@example.com","password":"password123"}
-                                """))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.accessToken").isNotEmpty());
-
-        mockMvc.perform(post("/api/v1/auth/refresh")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"refreshToken":"%s"}
-                                """.formatted(tokens.get("refreshToken").asText())))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.accessToken").isNotEmpty());
-    }
-
-    @Test
-    void rejectsDuplicateEmailAndInvalidLogin() throws Exception {
-        mockMvc.perform(post("/api/v1/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
                                 {"email":"grace@example.com","password":"password123"}
                                 """))
-                .andExpect(status().isCreated());
-
-        mockMvc.perform(post("/api/v1/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"email":"grace@example.com","password":"password123"}
-                                """))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("AUTH_EMAIL_TAKEN"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").isNotEmpty())
+                .andExpect(jsonPath("$.refreshToken").doesNotExist())
+                .andExpect(jsonPath("$.user.email").value("grace@example.com"))
+                .andExpect(jsonPath("$.workspace.name").value("我的工作空间"))
+                .andExpect(cookie().exists("refresh_token"))
+                .andExpect(cookie().httpOnly("refresh_token", true));
 
         mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -118,7 +104,29 @@ class AuthApiIT {
                                 {"email":"grace@example.com","password":"wrong-password"}
                                 """))
                 .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("AUTH_INVALID_CREDENTIALS"))
+                .andExpect(jsonPath("$.message").value("邮箱或密码错误"));
+
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"missing@example.com","password":"password123"}
+                                """))
+                .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("AUTH_INVALID_CREDENTIALS"));
+    }
+
+    @Test
+    void rejectsDuplicateEmail() throws Exception {
+        register("dup@example.com", "password123", "Dup");
+
+        mockMvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"dup@example.com","password":"password123","name":"Dup"}
+                                """))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("AUTH_EMAIL_ALREADY_EXISTS"));
     }
 
     @Test
@@ -126,9 +134,129 @@ class AuthApiIT {
         mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"email":"not-an-email","password":"123"}
+                                {"email":"not-an-email","password":"123","name":""}
                                 """))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void protectedEndpointRequiresAuthentication() throws Exception {
+        mockMvc.perform(get("/api/v1/me"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+
+        mockMvc.perform(get("/api/v1/me").header("Authorization", "Bearer not-a-jwt"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("AUTH_TOKEN_INVALID"));
+    }
+
+    @Test
+    void expiredAccessTokenIsRejected() throws Exception {
+        RegisteredUser registered = register("exp-access@example.com", "password123", "Exp");
+        String expired = expiredAccessToken(
+                UUID.fromString(registered.body.get("user").get("id").asText()),
+                registered.body.get("user").get("email").asText()
+        );
+
+        mockMvc.perform(get("/api/v1/me").header("Authorization", "Bearer " + expired))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("AUTH_TOKEN_EXPIRED"));
+    }
+
+    @Test
+    void refreshRotatesTokenAndRejectsReuse() throws Exception {
+        RegisteredUser registered = register("rotate@example.com", "password123", "Rotate");
+        MockCookie firstRefresh = registered.cookie;
+
+        MvcResult refreshed = mockMvc.perform(post("/api/v1/auth/refresh").cookie(firstRefresh))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").isNotEmpty())
+                .andExpect(jsonPath("$.refreshToken").doesNotExist())
+                .andReturn();
+
+        mockMvc.perform(post("/api/v1/auth/refresh").cookie(firstRefresh))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("AUTH_REFRESH_TOKEN_INVALID"));
+
+        JsonNode rotated = jsonMapper.readTree(refreshed.getResponse().getContentAsString());
+        mockMvc.perform(get("/api/v1/me").header("Authorization", "Bearer " + rotated.get("accessToken").asText()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.email").value("rotate@example.com"));
+    }
+
+    @Test
+    void expiredRefreshTokenIsRejected() throws Exception {
+        RegisteredUser registered = register("exp-refresh@example.com", "password123", "ExpRefresh");
+        refreshTokenStore.expire(registered.cookie.getValue());
+
+        mockMvc.perform(post("/api/v1/auth/refresh").cookie(registered.cookie))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("AUTH_TOKEN_EXPIRED"));
+    }
+
+    @Test
+    void logoutRevokesRefreshToken() throws Exception {
+        RegisteredUser registered = register("logout@example.com", "password123", "Logout");
+
+        mockMvc.perform(post("/api/v1/auth/logout").cookie(registered.cookie))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(post("/api/v1/auth/refresh").cookie(registered.cookie))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("AUTH_REFRESH_TOKEN_INVALID"));
+    }
+
+    private RegisteredUser register(String email, String password, String name) throws Exception {
+        MvcResult result = mockMvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"%s","password":"%s","name":"%s"}
+                                """.formatted(email, password, name)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.accessToken").isNotEmpty())
+                .andExpect(jsonPath("$.refreshToken").doesNotExist())
+                .andExpect(jsonPath("$.tokenType").value("Bearer"))
+                .andExpect(jsonPath("$.user.name").value(name))
+                .andExpect(jsonPath("$.workspace.name").value("我的工作空间"))
+                .andExpect(cookie().exists("refresh_token"))
+                .andExpect(cookie().httpOnly("refresh_token", true))
+                .andReturn();
+        return new RegisteredUser(
+                jsonMapper.readTree(result.getResponse().getContentAsString()),
+                requireRefreshCookie(result)
+        );
+    }
+
+    private static MockCookie requireRefreshCookie(MvcResult result) {
+        MockCookie cookie = (MockCookie) result.getResponse().getCookie("refresh_token");
+        if (cookie != null) {
+            return cookie;
+        }
+        String header = result.getResponse().getHeader(HttpHeaders.SET_COOKIE);
+        if (header == null) {
+            throw new AssertionError("Missing refresh_token cookie");
+        }
+        return MockCookie.parse(header);
+    }
+
+    private String expiredAccessToken(UUID userId, String email) {
+        Instant now = Instant.now();
+        JwtClaimsSet claims = JwtClaimsSet.builder()
+                .id(UUID.randomUUID().toString())
+                .issuer(JwtService.ISSUER)
+                .subject(userId.toString())
+                .issuedAt(now.minusSeconds(7200))
+                .expiresAt(now.minusSeconds(3600))
+                .claim(JwtService.CLAIM_EMAIL, email)
+                .claim(JwtService.CLAIM_TOKEN_TYPE, JwtService.ACCESS_TOKEN_TYPE)
+                .build();
+        return jwtEncoder.encode(JwtEncoderParameters.from(
+                JwsHeader.with(MacAlgorithm.HS256).build(),
+                claims
+        )).getTokenValue();
+    }
+
+    private record RegisteredUser(JsonNode body, MockCookie cookie) {
     }
 }
