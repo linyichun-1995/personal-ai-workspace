@@ -68,6 +68,8 @@ function object(type, props = []) {
 const U = (key, value) => [key, uint(value)]
 const F = (key, value) => [key, number(value)]
 const S = (key, value) => [key, string(value)]
+const bytes = (key, data) => [key, Buffer.concat([uint(data.length), data])]
+const pathIds = (...values) => Buffer.concat(values.map(value => uint(value)))
 chunks.push(Buffer.from('RIVE'), uint(7), uint(0), uint(0), uint(0))
 object(23) // Backboard
 const entries = Object.entries(layers)
@@ -77,7 +79,13 @@ for (const [index, [name, content]] of entries.entries()) {
   object(105, [S(203, name), U(204, index), F(207, 400), F(208, 360)])
   object(106, [[212, Buffer.concat([uint(png.length), png])]])
 }
-object(1, [S(4, 'Workspace Companion'), F(7, 360), F(8, 400), U(236, 0)]) // Artboard id 0
+object(435, [S(557, 'AuthCompanion')])
+object(431, [S(557, 'authState')])
+object(431, [S(557, 'blink')])
+object(437, [S(4, 'Default'), U(566, 0)])
+object(442, [U(554, 0), F(575, 0)])
+object(442, [U(554, 1), F(575, 0)])
+object(1, [S(4, 'Workspace Companion'), F(7, 360), F(8, 400), U(236, 0), U(583, 0)]) // Artboard id 0
 object(2, [S(4, 'robot'), U(5, 0)]) // root id 1
 const ids = {}
 let objectId = 2
@@ -116,9 +124,12 @@ for (const [name, scale] of [['eyes-open', 1], ['eyes-closed', 0.12]]) {
   keyed(ids.eyes, 17, [[0, scale]])
 }
 object(53, [S(55, 'AuthCompanion')])
-object(56, [S(138, 'authState'), F(140, 0)])
-object(56, [S(138, 'blink'), F(140, 0)])
-function stateLayer(name, input, animationIds) {
+function bindNumber(propertyId) {
+  object(473)
+  object(447, [U(586, 636), U(587, 0), bytes(588, pathIds(0, propertyId))])
+  object(479)
+}
+function stateLayer(name, propertyId, animationIds) {
   object(57, [S(138, name)])
   object(63) // entry id 0
   object(65, [U(151, 3), U(158, 0)])
@@ -126,7 +137,9 @@ function stateLayer(name, input, animationIds) {
   object(62) // any id 2
   animationIds.forEach((_, state) => {
     object(65, [U(151, state + 3), U(158, name === 'eyes' ? 65 : 220)])
-    object(70, [U(155, input), U(156, 0), F(157, state)])
+    object(482, [U(650, 0)])
+    bindNumber(propertyId)
+    object(484, [F(652, state)])
   })
   animationIds.forEach(id => object(61, [U(149, id)]))
 }
@@ -137,4 +150,4 @@ const requireRive = createRequire(import.meta.resolve('@rive-app/react-canvas'))
 const runtimeDir = path.dirname(requireRive.resolve('@rive-app/canvas'))
 await copyFile(path.join(runtimeDir, 'rive.wasm'), new URL('rive.wasm', publicDir))
 await copyFile(path.join(runtimeDir, 'rive_fallback.wasm'), new URL('rive_fallback.wasm', publicDir))
-console.log(`Built workspace-companion.riv (${Buffer.concat(chunks).length} bytes), 9 auth states, 2 eye states, local WASM.`)
+console.log(`Built workspace-companion.riv (${Buffer.concat(chunks).length} bytes), view model AuthCompanion, 9 auth states, 2 eye states, local WASM.`)

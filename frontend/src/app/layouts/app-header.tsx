@@ -28,7 +28,7 @@ export function AppHeader({ title }: { title?: string }) {
       <button
         type="button"
         onClick={() => setCommandPaletteOpen(true)}
-        className="hidden h-9 w-full max-w-[34rem] items-center gap-2 rounded-md border border-transparent bg-surface-sunken/65 px-3 text-xs text-muted-foreground transition-colors hover:border-border hover:bg-surface-subtle focus-visible:ring-2 focus-visible:ring-ring/30 sm:flex"
+        className="hidden h-9 w-full max-w-136 items-center gap-2 rounded-md border border-transparent bg-surface-sunken/65 px-3 text-xs text-muted-foreground transition-colors hover:border-border hover:bg-surface-subtle focus-visible:ring-2 focus-visible:ring-ring/30 sm:flex"
       >
         <Search className="size-4" />
         <span className="flex-1 truncate text-left">搜索项目、任务、笔记或询问 AI…</span>
