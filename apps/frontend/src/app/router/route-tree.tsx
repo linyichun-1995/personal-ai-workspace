@@ -14,7 +14,20 @@ import { NoteDetailPage, NotesPage } from '@/features/note'
 import { ProjectDetailPage, ProjectsPage } from '@/features/project'
 import { SearchPage } from '@/features/search'
 import { TasksPage } from '@/features/task'
-import { DashboardPage, AppearanceSettingsPage, ProfileSettingsPage, SecuritySettingsPage, SettingsLayout, WorkspaceSettingsPage } from '@/features/workspace'
+import { validateTaskSearch } from '@/features/task/lib/task-search'
+import {
+  validateProjectDetailSearch,
+  validateProjectListSearch,
+} from '@/features/project/lib/project-search'
+import { validateNoteDetailSearch, validateNoteListSearch } from '@/features/note/lib/note-search'
+import {
+  DashboardPage,
+  AppearanceSettingsPage,
+  ProfileSettingsPage,
+  SecuritySettingsPage,
+  SettingsLayout,
+  WorkspaceSettingsPage,
+} from '@/features/workspace'
 
 export const rootRoute = createRootRouteWithContext<RouterContext>()({
   component: RootLayout,
@@ -75,18 +88,21 @@ const dashboardRoute = createRoute({
 const projectsRoute = createRoute({
   getParentRoute: () => appRoute,
   path: 'projects',
+  validateSearch: validateProjectListSearch,
   component: ProjectsPage,
 })
 
 const activeProjectsRoute = createRoute({
   getParentRoute: () => appRoute,
   path: 'projects/active',
+  validateSearch: validateProjectListSearch,
   component: () => <ProjectsPage view="active" />,
 })
 
 const archivedProjectsRoute = createRoute({
   getParentRoute: () => appRoute,
   path: 'projects/archived',
+  validateSearch: validateProjectListSearch,
   component: () => <ProjectsPage view="archived" />,
 })
 
@@ -99,42 +115,56 @@ const projectTemplatesRoute = createRoute({
 const projectDetailRoute = createRoute({
   getParentRoute: () => appRoute,
   path: 'projects/$projectId',
+  validateSearch: validateProjectDetailSearch,
   component: ProjectDetailPage,
 })
 
 const tasksRoute = createRoute({
   getParentRoute: () => appRoute,
   path: 'tasks',
+  validateSearch: validateTaskSearch,
   component: TasksPage,
 })
 
 const todayTasksRoute = createRoute({
   getParentRoute: () => appRoute,
   path: 'tasks/today',
+  validateSearch: validateTaskSearch,
   component: () => <TasksPage activeView="today" />,
 })
 
 const upcomingTasksRoute = createRoute({
   getParentRoute: () => appRoute,
   path: 'tasks/upcoming',
+  validateSearch: validateTaskSearch,
   component: () => <TasksPage activeView="upcoming" />,
 })
 
 const completedTasksRoute = createRoute({
   getParentRoute: () => appRoute,
   path: 'tasks/completed',
+  validateSearch: validateTaskSearch,
   component: () => <TasksPage activeView="completed" />,
+})
+
+const overdueTasksRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: 'tasks/overdue',
+  validateSearch: validateTaskSearch,
+  component: () => <TasksPage activeView="overdue" />,
 })
 
 const notesRoute = createRoute({
   getParentRoute: () => appRoute,
   path: 'notes',
+  validateSearch: validateNoteListSearch,
   component: NotesPage,
 })
 
 const noteDetailRoute = createRoute({
   getParentRoute: () => appRoute,
   path: 'notes/$noteId',
+  validateSearch: validateNoteDetailSearch,
   component: NoteDetailPage,
 })
 
@@ -232,6 +262,7 @@ export const routeTree = rootRoute.addChildren([
     todayTasksRoute,
     upcomingTasksRoute,
     completedTasksRoute,
+    overdueTasksRoute,
     notesRoute,
     noteDetailRoute,
     filesRoute,

@@ -1,14 +1,22 @@
-import { Link } from '@tanstack/react-router'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ListTodo, Plus } from 'lucide-react'
+import { Link, useNavigate, useSearch } from '@tanstack/react-router'
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Plus } from 'lucide-react'
 import { useState } from 'react'
+import { toast } from 'sonner'
 
 import { useSession } from '@/features/auth/hooks/use-session'
 import { listProjects } from '@/features/project/api/projects'
-import { createTask, listTasks, updateTask, updateTaskStatus } from '@/features/task/api/tasks'
+import {
+  createTask,
+  deleteTask,
+  getTask,
+  listTasks,
+  updateTask,
+  updateTaskStatus,
+} from '@/features/task/api/tasks'
 import { TaskFormDialog } from '@/features/task/components/task-form-dialog'
 import { TaskTable } from '@/features/task/components/task-table'
-import type { Task, TaskDueFilter } from '@/features/task/types'
+import type { TaskDueFilter, TaskStatus } from '@/features/task/types'
 import { toTaskTableItem } from '@/features/task/types'
 import { invalidateWorkspaceData } from '@/shared/api/invalidate'
 import { queryKeys } from '@/shared/api/query-keys'
@@ -16,158 +24,273 @@ import { PageContainer } from '@/shared/components/page-container'
 import { PageHeader } from '@/shared/components/page-header'
 import { QueryState } from '@/shared/components/query-state'
 import { Button } from '@/shared/components/ui/button'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog'
 
 const views = [
-  { value: 'today', label: '今天', to: '/app/tasks/today', due: 'TODAY' as TaskDueFilter },
-  { value: 'upcoming', label: '即将到期', to: '/app/tasks/upcoming', due: 'UPCOMING' as TaskDueFilter },
-  { value: 'all', label: '我的任务', to: '/app/tasks' },
-  { value: 'completed', label: '已完成', to: '/app/tasks/completed', status: 'DONE' },
+  {
+    value: 'all',
+    label: '全部任务',
+    to: '/app/tasks',
+    empty: '还没有任务',
+    description: '把下一步要做的事写下来，也可以稍后关联项目。',
+  },
+  {
+    value: 'today',
+    label: '今天',
+    to: '/app/tasks/today',
+    due: 'TODAY' as TaskDueFilter,
+    empty: '今天没有到期任务',
+    description: '可以新建待办，或在全部任务里安排截止时间。',
+  },
+  {
+    value: 'overdue',
+    label: '已逾期',
+    to: '/app/tasks/overdue',
+    due: 'OVERDUE' as TaskDueFilter,
+    empty: '没有逾期任务',
+    description: '当前安排都在掌控中，继续推进下一项工作。',
+  },
+  {
+    value: 'upcoming',
+    label: '即将到期',
+    to: '/app/tasks/upcoming',
+    due: 'UPCOMING' as TaskDueFilter,
+    empty: '近期没有到期任务',
+    description: '给任务设置截止时间，就能在这里提前安排。',
+  },
+  {
+    value: 'completed',
+    label: '已完成',
+    to: '/app/tasks/completed',
+    status: 'DONE',
+    empty: '还没有已完成任务',
+    description: '完成一项任务后，可以在这里回顾，或重新打开。',
+  },
 ] as const
 
-export function TasksPage({ activeView = 'all' }: { activeView?: (typeof views)[number]['value'] }) {
-  const session = useSession()
-  const workspaceId = session.data?.workspace.id
-  const assignee = session.data?.user.name ?? '我'
+export function TasksPage({
+  activeView = 'all',
+}: {
+  activeView?: (typeof views)[number]['value']
+}) {
+  const { data: session } = useSession()
+  const workspaceId = session?.workspace.id
   const queryClient = useQueryClient()
-  const [createOpen, setCreateOpen] = useState(false)
-  const [editing, setEditing] = useState<Task | null>(null)
-  const view = views.find(item => item.value === activeView) ?? views[2]
-
-  const query = useQuery({
-    queryKey: queryKeys.task.list(workspaceId ?? '', { view: activeView }),
+  const navigate = useNavigate()
+  const search = useSearch({ strict: false })
+  const [localCreateOpen, setLocalCreateOpen] = useState(false)
+  const view = views.find((item) => item.value === activeView) ?? views[0]
+  const editingId = search.taskId
+  const invalidate = () => workspaceId && invalidateWorkspaceData(queryClient, workspaceId)
+  const query = useInfiniteQuery({
+    queryKey: queryKeys.task.list(workspaceId ?? '', { view: activeView, mode: 'infinite' }),
     enabled: Boolean(workspaceId),
-    queryFn: () => listTasks({
-      due: 'due' in view ? view.due : undefined,
-      status: 'status' in view ? view.status : undefined,
-      size: 100,
-      sort: activeView === 'completed' ? 'updatedAt,desc' : 'dueAt,asc',
-    }),
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) =>
+      listTasks({
+        due: 'due' in view ? view.due : undefined,
+        status: 'status' in view ? view.status : undefined,
+        page: pageParam,
+        size: 100,
+        sort: activeView === 'completed' ? 'updatedAt,desc' : 'dueAt,asc',
+      }),
+    getNextPageParam: (page) => (page.page < page.totalPages ? page.page + 1 : undefined),
   })
-
-  const projectsQuery = useQuery({
-    queryKey: queryKeys.project.list(workspaceId ?? '', { archived: false }),
-    enabled: Boolean(workspaceId),
+  const detail = useQuery({
+    queryKey: queryKeys.task.detail(workspaceId ?? '', editingId ?? ''),
+    enabled: Boolean(workspaceId && editingId),
+    queryFn: () => getTask(editingId!),
+  })
+  const projects = useQuery({
+    queryKey: queryKeys.project.list(workspaceId ?? '', { archived: false, size: 100 }),
+    enabled: Boolean(workspaceId && (localCreateOpen || search.create || editingId)),
     queryFn: () => listProjects({ archived: false, size: 100 }),
   })
-
-  const createMutation = useMutation({
+  const create = useMutation({
     mutationFn: createTask,
-    onSuccess: () => workspaceId && invalidateWorkspaceData(queryClient, workspaceId),
+    onSuccess: (task) => {
+      invalidate()
+      toast.success('任务已创建', {
+        action: {
+          label: '查看任务',
+          onClick: () => void navigate({ to: view.to, search: { taskId: task.id } }),
+        },
+      })
+    },
   })
-  const updateMutation = useMutation({
-    mutationFn: ({ id, ...input }: Parameters<typeof updateTask>[1] & { id: string }) => updateTask(id, input),
-    onSuccess: () => workspaceId && invalidateWorkspaceData(queryClient, workspaceId),
+  const update = useMutation({
+    mutationFn: ({ id, ...input }: Parameters<typeof updateTask>[1] & { id: string }) =>
+      updateTask(id, input),
+    onSuccess: () => {
+      invalidate()
+      toast.success('任务已保存')
+    },
   })
-  const completeMutation = useMutation({
-    mutationFn: ({ id, status, version }: { id: string, status: 'DONE' | 'TODO', version: number }) =>
-      updateTaskStatus(id, status, version),
-    onSuccess: () => workspaceId && invalidateWorkspaceData(queryClient, workspaceId),
+  const remove = useMutation({
+    mutationFn: deleteTask,
+    onSuccess: () => {
+      invalidate()
+      toast.success('任务已删除')
+    },
   })
-
-  const title = view.label
-
+  const status = useMutation({
+    mutationFn: ({
+      id,
+      status: nextStatus,
+      version,
+    }: {
+      id: string
+      status: TaskStatus
+      version: number
+    }) => updateTaskStatus(id, nextStatus, version),
+    onSuccess: invalidate,
+  })
+  function closeEditor() {
+    void navigate({ to: view.to, search: {}, replace: true })
+  }
+  function setCreateOpen(open: boolean, navigating = false) {
+    setLocalCreateOpen(open)
+    if (!open && search.create && !navigating)
+      void navigate({ to: view.to, search: {}, replace: true })
+  }
   return (
-    <PageContainer width="wide" className="grid gap-5">
+    <PageContainer className="grid gap-5">
       <PageHeader
-        eyebrow="工作台 / 任务"
         title="任务"
-        description="集中查看、筛选和推进工作空间中的任务。"
-        actions={(
+        description="写下下一步，设置截止时间，完成后勾选。点击标题可查看详情。"
+        actions={
           <Button onClick={() => setCreateOpen(true)}>
-            <Plus className="size-4" />
-            创建任务
+            <Plus />
+            新建任务
           </Button>
-        )}
+        }
       />
-
-      <div className="flex flex-col gap-3 border-b border-border-subtle sm:flex-row sm:items-center sm:justify-between">
-        <nav className="flex items-center gap-1 overflow-x-auto" aria-label="任务视图">
-          {views.map(item => (
-            <Link
-              key={item.value}
-              to={item.to}
-              activeOptions={{ exact: true }}
-              data-active={item.value === activeView}
-              className="relative flex h-11 shrink-0 items-center px-3 text-[13px] text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40 data-[active=true]:font-medium data-[active=true]:text-foreground data-[active=true]:after:absolute data-[active=true]:after:inset-x-2 data-[active=true]:after:bottom-0 data-[active=true]:after:h-0.5 data-[active=true]:after:rounded-full data-[active=true]:after:bg-primary"
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-      </div>
-
-      <section aria-labelledby="task-list-heading">
-        <div className="mb-3 flex items-center gap-2">
-          <span className="grid size-7 place-items-center rounded-md bg-primary-subtle text-primary">
-            <ListTodo className="size-4" />
-          </span>
-          <div>
-            <h2 id="task-list-heading" className="text-sm font-semibold">{title}</h2>
-            <p className="text-xs text-muted-foreground">支持排序、搜索、分页、选择和列显隐</p>
-          </div>
-        </div>
-        <QueryState
-          query={query}
-          isEmpty={data => data.items.length === 0}
-          empty={{
-            title: '还没有任务',
-            description: '创建一条任务，或从项目详情里添加。',
-            action: <Button onClick={() => setCreateOpen(true)}>创建任务</Button>,
-          }}
-        >
-          {data => (
+      <nav
+        className="flex gap-1 overflow-x-auto border-b border-border-subtle"
+        aria-label="任务视图"
+      >
+        {views.map((item) => (
+          <Link
+            key={item.value}
+            to={item.to}
+            aria-current={activeView === item.value ? 'page' : undefined}
+            className={
+              'shrink-0 border-b-2 px-3 py-3 text-sm focus-visible:ring-2 focus-visible:ring-ring/40 ' +
+              (activeView === item.value
+                ? 'border-primary font-medium text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground')
+            }
+          >
+            {item.label}
+          </Link>
+        ))}
+      </nav>
+      <QueryState
+        query={query}
+        isEmpty={(data) => data.pages[0]?.total === 0}
+        empty={{
+          title: view.empty,
+          description: view.description,
+          action:
+            activeView === 'all' || activeView === 'today' ? (
+              <Button onClick={() => setCreateOpen(true)}>新建任务</Button>
+            ) : (
+              <Button variant="outline" asChild>
+                <Link to="/app/tasks">查看全部任务</Link>
+              </Button>
+            ),
+        }}
+      >
+        {(data) => (
+          <div className="grid gap-3">
             <TaskTable
               key={activeView}
-              data={data.items.map(task => toTaskTableItem(task, assignee))}
-              onRowClick={item => setEditing(item.raw)}
-              onToggleComplete={(item, completed) => completeMutation.mutate({
-                id: item.raw.id,
-                status: completed ? 'DONE' : 'TODO',
-                version: item.raw.version,
-              })}
+              data={data.pages
+                .flatMap((page) => page.items)
+                .map((task) => toTaskTableItem(task, session?.user.name ?? '我'))}
+              busy={status.isPending}
+              onRowClick={(item) => {
+                if (workspaceId)
+                  queryClient.setQueryData(queryKeys.task.detail(workspaceId, item.id), item.raw)
+                void navigate({ to: view.to, search: { taskId: item.id } })
+              }}
+              onToggleComplete={(item, completed) =>
+                status.mutate({
+                  id: item.id,
+                  status: completed ? 'DONE' : 'TODO',
+                  version: item.raw.version,
+                })
+              }
+              onStatusChange={(item, nextStatus) =>
+                status.mutate({ id: item.id, status: nextStatus, version: item.raw.version })
+              }
             />
-          )}
-        </QueryState>
-      </section>
-
+            {query.hasNextPage && (
+              <Button
+                variant="outline"
+                disabled={query.isFetchingNextPage}
+                onClick={() => void query.fetchNextPage()}
+              >
+                {query.isFetchingNextPage
+                  ? '正在加载…'
+                  : '加载更多任务（共 ' + (data.pages[0]?.total ?? 0) + ' 项）'}
+              </Button>
+            )}
+          </div>
+        )}
+      </QueryState>
       <TaskFormDialog
-        open={createOpen}
+        open={localCreateOpen || Boolean(search.create)}
         onOpenChange={setCreateOpen}
-        projects={projectsQuery.data?.items ? [...projectsQuery.data.items] : []}
-        submitting={createMutation.isPending}
+        projects={[...(projects.data?.items ?? [])]}
+        projectsLoading={projects.isPending}
+        submitting={create.isPending}
         onSubmit={async (values) => {
-          await createMutation.mutateAsync({
-            title: values.title,
+          await create.mutateAsync({
+            ...values,
             description: values.description || null,
             projectId: values.projectId || null,
-            status: values.status,
-            priority: values.priority,
             dueAt: values.dueAt || null,
           })
         }}
       />
-      <TaskFormDialog
-        open={Boolean(editing)}
-        onOpenChange={open => !open && setEditing(null)}
-        task={editing}
-        projects={projectsQuery.data?.items ? [...projectsQuery.data.items] : []}
-        submitting={updateMutation.isPending}
-        onSubmit={async (values) => {
-          if (!editing) {
-            return
-          }
-          await updateMutation.mutateAsync({
-            id: editing.id,
-            title: values.title,
-            description: values.description || null,
-            projectId: values.projectId || null,
-            status: values.status,
-            priority: values.priority,
-            dueAt: values.dueAt || null,
-            version: editing.version,
-          })
-        }}
-      />
+      {editingId &&
+        (detail.data ? (
+          <TaskFormDialog
+            key={editingId}
+            open
+            onOpenChange={(open, navigating) => !open && !navigating && closeEditor()}
+            task={detail.data}
+            projects={[...(projects.data?.items ?? [])]}
+            projectsLoading={projects.isPending}
+            submitting={update.isPending}
+            onDelete={async () => {
+              await remove.mutateAsync(editingId)
+            }}
+            onSubmit={async (values) => {
+              if (!detail.data) return
+              await update.mutateAsync({
+                ...values,
+                id: editingId,
+                description: values.description || null,
+                projectId: values.projectId || null,
+                dueAt: values.dueAt || null,
+                startAt: detail.data.startAt,
+                parentId: detail.data.parentId,
+                version: detail.data.version,
+              })
+            }}
+          />
+        ) : (
+          <Dialog open onOpenChange={(open) => !open && closeEditor()}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>任务详情</DialogTitle>
+              </DialogHeader>
+              <QueryState query={detail}>{() => null}</QueryState>
+            </DialogContent>
+          </Dialog>
+        ))}
     </PageContainer>
   )
 }

@@ -1,6 +1,6 @@
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
-import { Bell, CircleUserRound, LogOut, Menu, Moon, Palette, Search, Sun } from 'lucide-react'
+import { CircleUserRound, LogOut, Menu, Moon, Palette, Search, Sun } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { Popover } from 'radix-ui'
 import { useState } from 'react'
@@ -20,8 +20,8 @@ function userInitial(name?: string): string {
 
 export function AppHeader({ title }: { title?: string }) {
   const isDesktop = useIsDesktop()
-  const setMobileNavOpen = useUiStore(state => state.setMobileNavOpen)
-  const setCommandPaletteOpen = useUiStore(state => state.setCommandPaletteOpen)
+  const setMobileNavOpen = useUiStore((state) => state.setMobileNavOpen)
+  const setCommandPaletteOpen = useUiStore((state) => state.setCommandPaletteOpen)
   const { resolvedTheme, setTheme } = useTheme()
   const { data: session } = useSession()
   const queryClient = useQueryClient()
@@ -32,8 +32,7 @@ export function AppHeader({ title }: { title?: string }) {
     setMenuOpen(false)
     try {
       await logout()
-    }
-    finally {
+    } finally {
       queryClient.setQueryData(queryKeys.auth.session(), null)
       queryClient.removeQueries({ queryKey: queryKeys.auth.all() })
       await navigate({ to: '/login' })
@@ -42,15 +41,20 @@ export function AppHeader({ title }: { title?: string }) {
 
   return (
     <header className="sticky top-0 z-30 flex h-(--header-height) shrink-0 items-center gap-3 border-b border-border-subtle bg-background/90 px-4 backdrop-blur-lg md:px-5">
-      {!isDesktop
-        ? (
-            <Button variant="ghost" size="icon" onClick={() => setMobileNavOpen(true)} aria-label="打开导航">
-              <Menu />
-            </Button>
-          )
-        : null}
+      {!isDesktop ? (
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setMobileNavOpen(true)}
+          aria-label="打开导航"
+        >
+          <Menu />
+        </Button>
+      ) : null}
 
-      {!isDesktop && <p className="min-w-0 truncate text-sm font-medium sm:hidden">{title ?? 'AI Workspace'}</p>}
+      {!isDesktop && (
+        <p className="min-w-0 truncate text-sm font-medium sm:hidden">{title ?? 'AI Workspace'}</p>
+      )}
 
       <button
         type="button"
@@ -58,28 +62,31 @@ export function AppHeader({ title }: { title?: string }) {
         className="hidden h-9 w-full max-w-136 items-center gap-2 rounded-md border border-transparent bg-surface-sunken/65 px-3 text-xs text-muted-foreground transition-colors hover:border-border hover:bg-surface-subtle focus-visible:ring-2 focus-visible:ring-ring/30 sm:flex"
       >
         <Search className="size-4" />
-        <span className="flex-1 truncate text-left">搜索项目、任务、笔记或询问 AI…</span>
-        <kbd className="rounded border bg-background px-1.5 py-0.5 font-sans text-[10px] shadow-xs">Ctrl K</kbd>
+        <span className="flex-1 truncate text-left">跳转到页面或新建内容…</span>
+        <kbd className="rounded border bg-background px-1.5 py-0.5 font-sans text-[10px] shadow-xs">
+          Ctrl K
+        </kbd>
       </button>
 
       <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-3">
-        <Button variant="ghost" size="icon-sm" className="sm:hidden" aria-label="全局搜索" onClick={() => setCommandPaletteOpen(true)}><Search /></Button>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="sm:hidden"
+          aria-label="快捷导航"
+          onClick={() => setCommandPaletteOpen(true)}
+        >
+          <Search />
+        </Button>
         <Tooltip>
           <TooltipTrigger asChild>
             <Button variant="ghost" size="icon-sm" asChild>
-              <Link to="/app/settings/appearance" aria-label="外观设置"><Palette /></Link>
+              <Link to="/app/settings/appearance" aria-label="外观设置">
+                <Palette />
+              </Link>
             </Button>
           </TooltipTrigger>
           <TooltipContent>外观设置</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon-sm" aria-label="通知" className="relative hidden sm:inline-flex">
-              <Bell />
-              <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-destructive" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>通知</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>

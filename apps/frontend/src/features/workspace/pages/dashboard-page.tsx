@@ -1,480 +1,328 @@
-import type { LucideIcon } from 'lucide-react'
 import { Link } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  BarChart3,
+  ArrowRight,
   CalendarDays,
-  ChartNoAxesCombined,
-  CheckCheck,
-  CheckSquare2,
+  CheckCircle2,
   Clock3,
-  FileText,
   FolderKanban,
   ListTodo,
-  MessageSquareText,
   NotebookPen,
-  Send,
-  Sparkles,
-  Sun,
+  Plus,
 } from 'lucide-react'
 
 import { useSession } from '@/features/auth/hooks/use-session'
 import { getDashboard } from '@/features/dashboard/api/dashboard'
 import type { DashboardTask } from '@/features/dashboard/types'
+import { CreateNoteButton } from '@/features/note/components/create-note-button'
 import { updateTaskStatus } from '@/features/task/api/tasks'
+import { TASK_PRIORITY_LABELS } from '@/features/task/types'
 import { invalidateWorkspaceData } from '@/shared/api/invalidate'
 import { queryKeys } from '@/shared/api/query-keys'
-import { MetricCard } from '@/shared/components/metric-card'
 import { PageContainer } from '@/shared/components/page-container'
 import { QueryState } from '@/shared/components/query-state'
 import { StatusBadge } from '@/shared/components/status-badge'
+import { Button } from '@/shared/components/ui/button'
 import { Checkbox } from '@/shared/components/ui/checkbox'
 import { Progress } from '@/shared/components/ui/progress'
 import { ViewAllButton, WorkspaceCard } from '@/shared/components/workspace-card'
 import { formatDateTime, formatLongDate, greetingFor } from '@/shared/lib/datetime'
-import { cn } from '@/shared/lib/utils'
-
-const priorityMeta = {
-  URGENT: { label: '紧急', tone: 'danger' as const },
-  HIGH: { label: '高', tone: 'danger' as const },
-  MEDIUM: { label: '中', tone: 'warning' as const },
-  LOW: { label: '低', tone: 'success' as const },
-}
-
-const taskStatuses = [
-  { value: 'todo', label: '待开始', color: 'bg-muted-foreground', key: 'todo' as const },
-  { value: 'in-progress', label: '进行中', color: 'bg-info', key: 'inProgress' as const },
-  { value: 'review', label: '待评审', color: 'bg-warning', key: 'review' as const },
-  { value: 'done', label: '已完成', color: 'bg-success', key: 'done' as const },
-] as const
-
-const toneClasses = {
-  primary: 'bg-primary-subtle text-primary',
-  info: 'bg-info-subtle text-info',
-  success: 'bg-success-subtle text-success',
-  warning: 'bg-warning-subtle text-warning',
-  danger: 'bg-destructive-subtle text-destructive',
-}
-
-const projectTones = ['primary', 'info', 'warning', 'success'] as const
-
-function projectTone(index: number): keyof typeof toneClasses {
-  return projectTones[index % projectTones.length] ?? 'primary'
-}
-
-function IconTile({ icon: Icon, tone }: { icon: LucideIcon, tone: keyof typeof toneClasses }) {
-  return (
-    <span className={cn('dashboard-icon grid size-8 shrink-0 place-items-center rounded-lg', toneClasses[tone])}>
-      <Icon className="size-4" strokeWidth={1.8} />
-    </span>
-  )
-}
-
-function AvatarStack({ name, count }: { name: string, count: number }) {
-  return (
-    <div className="flex items-center">
-      <div className="flex -space-x-1.5" aria-label={`${count} 位成员`}>
-        <span className="dashboard-avatar grid size-5 place-items-center rounded-full border-2 border-card bg-secondary text-[8px] font-semibold text-muted-foreground">
-          {name.slice(0, 1)}
-        </span>
-      </div>
-      <span className="ml-1.5 text-[11px] text-muted-foreground">{count}</span>
-    </div>
-  )
-}
-
-function EmptyLine({ text }: { text: string }) {
-  return <p className="px-4 py-6 text-center text-xs text-muted-foreground">{text}</p>
-}
 
 export function DashboardPage() {
-  const session = useSession()
-  const workspaceId = session.data?.workspace.id
-  const userName = session.data?.user.name ?? '你'
+  const { data: session } = useSession()
+  const workspaceId = session?.workspace.id
   const queryClient = useQueryClient()
   const query = useQuery({
     queryKey: queryKeys.dashboard.summary(workspaceId ?? ''),
     enabled: Boolean(workspaceId),
     queryFn: getDashboard,
   })
-  const completeMutation = useMutation({
-    mutationFn: ({ id, status, version }: { id: string, status: 'DONE' | 'TODO', version: number }) =>
-      updateTaskStatus(id, status, version),
+  const complete = useMutation({
+    mutationFn: (task: DashboardTask) => updateTaskStatus(task.id, 'DONE', task.version),
     onSuccess: () => workspaceId && invalidateWorkspaceData(queryClient, workspaceId),
   })
 
   return (
-    <div className="min-h-full bg-background">
-      <PageContainer className="dashboard-page @container/dashboard grid content-start gap-4 py-5 md:py-5">
-        <QueryState query={query}>
-          {(data) => {
-            const remainingToday = data.todayTasks.filter(task => task.status !== 'DONE').length
-            const totalTasks = Math.max(data.overview.totalTasks, 1)
-            const taskStatusCounts = taskStatuses.map(status => ({
-              ...status,
-              count: data.taskStatusCounts[status.key],
-            }))
-            return (
-              <>
-                <header className="dashboard-greeting flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex items-start gap-3">
-                    <span className="grid size-9 shrink-0 place-items-center text-warning">
-                      <Sun className="size-6" />
-                    </span>
-                    <div>
-                      <h1 className="text-xl font-semibold tracking-tight">
-                        {greetingFor()}，{userName}
-                      </h1>
-                      <p className="mt-0.5 text-[13px] text-muted-foreground">
-                        这是今天工作空间里最值得关注的内容。
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                    <span className="hidden sm:inline">{formatLongDate()}</span>
-                    <select
-                      className="h-9 rounded-md border bg-card px-3 text-xs text-foreground shadow-xs focus-visible:ring-2 focus-visible:ring-ring/30"
-                      aria-label="统计周期"
-                      defaultValue="week"
-                    >
-                      <option value="week">本周</option>
-                      <option value="today">今天</option>
-                      <option value="month">本月</option>
-                    </select>
-                  </div>
-                </header>
-
-                <section className="dashboard-metrics grid gap-4" aria-label="工作空间指标">
-                  <MetricCard
-                    label="活跃项目"
-                    value={data.overview.activeProjects}
-                    trend={`${data.overview.totalTasks} 个关联任务`}
-                    trendDirection="neutral"
-                    icon={FolderKanban}
-                    tone="info"
-                    chart={[]}
-                  />
-                  <MetricCard
-                    label="今日待完成"
-                    value={data.overview.todayTasks}
-                    trend={`逾期 ${data.overview.overdueTasks} 项`}
-                    trendDirection="neutral"
-                    icon={CheckSquare2}
-                    tone="danger"
-                    chart={[]}
-                  />
-                  <MetricCard
-                    label="本周新增笔记"
-                    value={data.overview.notesThisWeek}
-                    trend={`全部 ${data.overview.notes} 篇`}
-                    trendDirection="neutral"
-                    icon={NotebookPen}
-                    tone="primary"
-                    chart={[]}
-                  />
-                  <MetricCard
-                    label="AI 对话"
-                    value={data.overview.aiConversations}
-                    trend="后续版本提供"
-                    trendDirection="neutral"
-                    icon={MessageSquareText}
-                    tone="info"
-                    chart={[]}
-                  />
-                  <MetricCard
-                    label="任务完成率"
-                    value={`${data.overview.completionRate}%`}
-                    trend={`已完成 ${data.overview.completedTasks} / ${data.overview.totalTasks}`}
-                    trendDirection="neutral"
-                    icon={CheckCheck}
-                    tone="success"
-                    chart={[]}
-                  />
-                  <MetricCard
-                    label="待评审任务"
-                    value={data.overview.reviewTasks}
-                    trend="等待评审"
-                    trendDirection="neutral"
-                    icon={ListTodo}
-                    tone="warning"
-                    chart={[]}
-                  />
+    <PageContainer className="grid max-w-[100rem] gap-6">
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="mb-1 text-xs text-muted-foreground">{formatLongDate()}</p>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {greetingFor()}，{session?.user.name ?? '你'}
+          </h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            先推进眼前的任务，再回到项目继续工作。
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <CreateNoteButton variant="outline" />
+          <Button asChild>
+            <Link to="/app/tasks" search={{ create: true }}>
+              <Plus />
+              新建任务
+            </Link>
+          </Button>
+        </div>
+      </header>
+      <QueryState query={query}>
+        {(data) => {
+          const today = data.todayTasks.filter(
+            (task) => task.status !== 'DONE' && task.status !== 'CANCELLED',
+          )
+          const isNew =
+            data.overview.totalTasks === 0 &&
+            data.overview.activeProjects === 0 &&
+            data.overview.notes === 0
+          const metrics = [
+            {
+              label: '今日待办',
+              value: data.overview.todayTasks,
+              to: '/app/tasks/today' as const,
+              icon: CalendarDays,
+            },
+            {
+              label: '已逾期',
+              value: data.overview.overdueTasks,
+              to: '/app/tasks/overdue' as const,
+              icon: Clock3,
+            },
+            {
+              label: '进行中项目',
+              value: data.overview.activeProjects,
+              to: '/app/projects/active' as const,
+              icon: FolderKanban,
+            },
+            {
+              label: '笔记',
+              value: data.overview.notes,
+              to: '/app/notes' as const,
+              icon: NotebookPen,
+            },
+          ]
+          return (
+            <>
+              {isNew && (
+                <section
+                  className="rounded-xl border border-primary/20 bg-primary-subtle p-5 sm:p-6"
+                  aria-labelledby="getting-started"
+                >
+                  <p className="text-xs font-medium text-primary">从一件具体的事开始</p>
+                  <h2 id="getting-started" className="mt-2 text-lg font-semibold">
+                    建立项目，写下第一步
+                  </h2>
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+                    把正在推进的目标建成项目，再拆成任务；相关想法和资料写进项目笔记。零散事项也可以直接新建任务。
+                  </p>
+                  <Button className="mt-4" asChild>
+                    <Link to="/app/projects" search={{ create: true }}>
+                      创建一个项目
+                      <ArrowRight />
+                    </Link>
+                  </Button>
                 </section>
-
-                <div className="dashboard-panels grid gap-4">
+              )}
+              <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+                {metrics.map((metric) => (
+                  <Link
+                    key={metric.label}
+                    to={metric.to}
+                    className="rounded-lg border border-border-subtle bg-card p-4 transition-colors hover:border-primary/40 hover:bg-card-hover focus-visible:ring-2 focus-visible:ring-ring/40"
+                  >
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>{metric.label}</span>
+                      <metric.icon className="size-4" aria-hidden="true" />
+                    </div>
+                    <p className="mt-2 text-2xl font-semibold tabular-nums">{metric.value}</p>
+                  </Link>
+                ))}
+              </div>
+              {data.overview.overdueTasks > 0 && (
+                <Link
+                  to="/app/tasks/overdue"
+                  className="flex items-center gap-3 rounded-lg border border-warning/30 bg-warning/5 px-4 py-3 text-sm hover:bg-warning/10 focus-visible:ring-2 focus-visible:ring-ring/40"
+                >
+                  <Clock3 className="size-4 shrink-0 text-warning" aria-hidden="true" />
+                  <span className="flex-1">
+                    <strong>{data.overview.overdueTasks} 项任务已逾期</strong>
+                    <span className="ml-2 text-muted-foreground">优先完成，或调整截止时间。</span>
+                  </span>
+                  <ArrowRight className="size-4 shrink-0" aria-hidden="true" />
+                </Link>
+              )}
+              <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+                <div className="grid gap-5">
                   <WorkspaceCard
-                    title="今日任务"
-                    description={`${remainingToday} 项待完成 · ${data.todayTasks.length - remainingToday} 项已完成`}
-                    icon={CheckSquare2}
+                    title="今天先做这些"
+                    description={'今日还有 ' + data.overview.todayTasks + ' 项待办'}
+                    icon={ListTodo}
                     action={<ViewAllButton to="/app/tasks/today" />}
                   >
-                    {data.todayTasks.length === 0
-                      ? <EmptyLine text="今天没有到期任务" />
-                      : (
-                          <div className="flex flex-col divide-y divide-border-subtle px-4 pb-3">
-                            {data.todayTasks.map(task => (
-                              <TodayTaskRow
-                                key={task.id}
-                                task={task}
-                                userName={userName}
-                                disabled={completeMutation.isPending}
-                                onToggle={checked => completeMutation.mutate({
-                                  id: task.id,
-                                  status: checked ? 'DONE' : 'TODO',
-                                  version: task.version,
-                                })}
-                              />
-                            ))}
-                          </div>
-                        )}
-                  </WorkspaceCard>
-
-                  <WorkspaceCard
-                    title="进行中的项目"
-                    description={`${data.activeProjects.length} 个项目 · 进度与协作成员`}
-                    icon={FolderKanban}
-                    action={<ViewAllButton to="/app/projects/active" />}
-                  >
-                    {data.activeProjects.length === 0
-                      ? <EmptyLine text="还没有进行中的项目" />
-                      : (
-                          <div className="flex flex-col divide-y divide-border-subtle px-4 pb-3">
-                            {data.activeProjects.map((project, index) => (
-                              <Link
-                                key={project.id}
-                                to="/app/projects/$projectId"
-                                params={{ projectId: project.id }}
-                                className="dashboard-project-row flex h-[70px] items-center gap-3"
-                              >
-                                <IconTile icon={FolderKanban} tone={projectTone(index)} />
-                                <div className="min-w-0 flex-1">
-                                  <p title={project.name} className="truncate text-[13px] font-medium">{project.name}</p>
-                                  <p title={project.description ?? ''} className="truncate text-[11px] text-muted-foreground">
-                                    {project.description || '暂无描述'}
-                                  </p>
-                                  <div className="mt-1 flex max-w-48 items-center gap-2">
-                                    <Progress value={project.progress} aria-label={`${project.name}项目进度`} />
-                                    <span className="w-7 shrink-0 text-right text-[11px] text-muted-foreground">{project.progress}%</span>
-                                  </div>
-                                </div>
-                                <AvatarStack name={userName} count={project.memberCount} />
-                              </Link>
-                            ))}
-                          </div>
-                        )}
-                  </WorkspaceCard>
-
-                  <WorkspaceCard
-                    title="任务状态"
-                    description={`全部 ${data.overview.totalTasks} 项任务`}
-                    icon={BarChart3}
-                    action={<ViewAllButton to="/app/tasks" />}
-                  >
-                    <div className="grid gap-4 px-4 pb-4">
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-2xl font-semibold">{data.overview.completionRate}%</span>
-                        <span className="text-xs text-muted-foreground">整体完成率</span>
-                      </div>
-                      <div className="flex h-2 overflow-hidden rounded-full bg-secondary" aria-hidden="true">
-                        {taskStatusCounts.map(status => (
-                          <span
-                            key={status.value}
-                            className={status.color}
-                            style={{ width: `${(status.count / totalTasks) * 100}%` }}
+                    {today.length ? (
+                      <div className="divide-y divide-border-subtle px-4 pb-3">
+                        {today.map((task) => (
+                          <FocusTaskRow
+                            key={task.id}
+                            task={task}
+                            disabled={complete.isPending}
+                            onComplete={() => complete.mutate(task)}
                           />
                         ))}
                       </div>
-                      <dl className="grid gap-3">
-                        {taskStatusCounts.map(status => (
-                          <div key={status.value} className="flex items-center justify-between text-xs">
-                            <dt className="flex items-center gap-2 text-muted-foreground">
-                              <span className={cn('size-2 rounded-full', status.color)} />
-                              {status.label}
-                            </dt>
-                            <dd className="font-medium">
-                              {status.count}
-                              <span className="ml-1 font-normal text-muted-foreground">项</span>
-                            </dd>
+                    ) : (
+                      <div className="grid justify-items-start gap-3 px-4 pb-5">
+                        <CheckCircle2 className="size-6 text-success" aria-hidden="true" />
+                        <p className="text-sm font-medium">今天没有待处理的到期任务</p>
+                        <p className="text-xs text-muted-foreground">
+                          可以提前安排接下来的工作，或留下一条新的待办。
+                        </p>
+                        <Button variant="outline" size="sm" asChild>
+                          <Link to="/app/tasks" search={{ create: true }}>
+                            <Plus />
+                            新建任务
+                          </Link>
+                        </Button>
+                      </div>
+                    )}
+                  </WorkspaceCard>
+                  <WorkspaceCard
+                    title="继续推进项目"
+                    description="任务和笔记集中在项目里"
+                    icon={FolderKanban}
+                    action={<ViewAllButton to="/app/projects" />}
+                  >
+                    <div className="grid gap-1 px-3 pb-3">
+                      {data.activeProjects.slice(0, 5).map((project) => (
+                        <Link
+                          key={project.id}
+                          to="/app/projects/$projectId"
+                          params={{ projectId: project.id }}
+                          search={{ tab: 'tasks' }}
+                          className="rounded-md p-3 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/40"
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="truncate text-sm font-medium">{project.name}</p>
+                            <ArrowRight
+                              className="size-3.5 shrink-0 text-muted-foreground"
+                              aria-hidden="true"
+                            />
                           </div>
-                        ))}
-                      </dl>
-                      <p className="border-t border-border-subtle pt-3 text-xs text-muted-foreground">
-                        今日进度：已完成 {data.todayTasks.length - remainingToday} / {data.todayTasks.length}
-                      </p>
+                          <div className="mt-2 flex items-center gap-3">
+                            <Progress
+                              value={project.progress}
+                              aria-label={project.name + '任务进度'}
+                            />
+                            <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                              {project.completedTaskCount} / {project.taskCount} 项完成
+                            </span>
+                          </div>
+                        </Link>
+                      ))}
+                      {!data.activeProjects.length && (
+                        <p className="px-1 py-3 text-sm text-muted-foreground">
+                          还没有进行中的项目。把一个目标拆成可以执行的小任务。
+                        </p>
+                      )}
+                      <Button variant="ghost" className="justify-start text-primary" asChild>
+                        <Link to="/app/projects" search={{ create: true }}>
+                          <Plus />
+                          新建项目
+                        </Link>
+                      </Button>
                     </div>
                   </WorkspaceCard>
-
+                </div>
+                <div className="grid gap-5">
                   <WorkspaceCard
-                    title="AI 简报"
-                    description="工作空间重点摘要"
-                    icon={Sparkles}
-                    action={<ViewAllButton to="/app/ai" />}
-                  >
-                    <div className="flex h-full flex-col gap-4 px-4 pb-4">
-                      <p className="text-xs leading-6 text-muted-foreground">AI 能力将在后续版本提供。</p>
-                      <Link
-                        to="/app/ai"
-                        className="mt-auto flex min-h-9 items-center gap-2 rounded-md border border-border-subtle bg-surface-sunken/60 px-3 text-muted-foreground hover:bg-surface-subtle focus-visible:ring-2 focus-visible:ring-ring/30"
-                      >
-                        <span className="flex-1 text-xs">问问你的工作空间…</span>
-                        <Send className="size-3.5 text-primary" />
-                      </Link>
-                    </div>
-                  </WorkspaceCard>
-
-                  <WorkspaceCard
-                    title="最近笔记"
-                    description="继续阅读与整理"
-                    icon={FileText}
-                    action={<ViewAllButton to="/app/notes" />}
-                  >
-                    {data.recentNotes.length === 0
-                      ? <EmptyLine text="还没有笔记" />
-                      : (
-                          <div className="flex flex-col px-2 pb-3">
-                            {data.recentNotes.map((note, index) => (
-                              <Link
-                                key={note.id}
-                                to="/app/notes/$noteId"
-                                params={{ noteId: note.id }}
-                                className="dashboard-note-row flex h-14 w-full items-center gap-3 rounded-md px-2 text-left hover:bg-surface-subtle focus-visible:ring-2 focus-visible:ring-ring/30"
-                              >
-                                <IconTile icon={FileText} tone={projectTone(index)} />
-                                <span className="min-w-0">
-                                  <span title={note.title} className="block truncate text-[13px] font-medium">{note.title}</span>
-                                  <span className="block truncate text-[11px] text-muted-foreground">
-                                    {formatDateTime(note.updatedAt)}
-                                  </span>
-                                </span>
-                              </Link>
-                            ))}
-                          </div>
-                        )}
-                  </WorkspaceCard>
-
-                  <WorkspaceCard
-                    title="即将开始"
-                    description="即将到期的任务"
+                    title="接下来的安排"
+                    description="未来 7 天到期的任务"
                     icon={CalendarDays}
                     action={<ViewAllButton to="/app/tasks/upcoming" />}
                   >
-                    {data.upcomingTasks.length === 0
-                      ? <EmptyLine text="近期没有即将到期的任务" />
-                      : (
-                          <div className="flex flex-col px-2 pb-3">
-                            {data.upcomingTasks.map((item, index) => (
-                              <div key={item.id} className="dashboard-note-row flex h-14 items-center gap-3 rounded-md px-2">
-                                <IconTile icon={Clock3} tone={index === 0 ? 'danger' : projectTone(index)} />
-                                <div className="min-w-0">
-                                  <p title={item.title} className="truncate text-[13px] font-medium">{item.title}</p>
-                                  <p className="truncate text-[11px] text-muted-foreground">{formatDateTime(item.dueAt)}</p>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
+                    <div className="divide-y divide-border-subtle px-4 pb-3">
+                      {data.upcomingTasks.slice(0, 5).map((task) => (
+                        <FocusTaskRow key={task.id} task={task} />
+                      ))}
+                      {!data.upcomingTasks.length && (
+                        <p className="py-3 text-sm text-muted-foreground">
+                          近期没有安排，给任务设置截止时间后会显示在这里。
+                        </p>
+                      )}
+                    </div>
                   </WorkspaceCard>
-
                   <WorkspaceCard
-                    title="后续待办"
-                    description={`${data.nextTasks.length} 项任务 · 按到期时间排列`}
-                    icon={ListTodo}
-                    action={<ViewAllButton to="/app/tasks/upcoming" />}
+                    title="继续写笔记"
+                    description="最近更新的工作记录"
+                    icon={NotebookPen}
+                    action={<ViewAllButton to="/app/notes" />}
                   >
-                    {data.nextTasks.length === 0
-                      ? <EmptyLine text="没有后续待办" />
-                      : (
-                          <div className="divide-y divide-border-subtle px-4 pb-3">
-                            {data.nextTasks.map(task => (
-                              <Link
-                                key={task.id}
-                                to="/app/tasks/upcoming"
-                                className="dashboard-next-task-row flex h-14 items-center gap-3 rounded-sm hover:bg-surface-subtle focus-visible:ring-2 focus-visible:ring-ring/30"
-                              >
-                                <div className="min-w-0 flex-1">
-                                  <p title={task.title} className="truncate text-[13px]">{task.title}</p>
-                                  <p className="truncate text-[11px] text-muted-foreground">
-                                    {task.projectName ?? '未关联项目'}
-                                    {' · '}
-                                    {userName}
-                                  </p>
-                                </div>
-                                <span className="shrink-0 text-[11px] text-muted-foreground">{formatDateTime(task.dueAt)}</span>
-                              </Link>
-                            ))}
-                          </div>
-                        )}
-                  </WorkspaceCard>
-
-                  <WorkspaceCard
-                    title="项目任务分布"
-                    description="各项目的任务量与完成情况"
-                    icon={ChartNoAxesCombined}
-                    action={<ViewAllButton to="/app/projects" />}
-                  >
-                    {data.projectTaskStats.length === 0
-                      ? <EmptyLine text="还没有项目任务" />
-                      : (
-                          <div className="divide-y divide-border-subtle px-4 pb-3">
-                            {data.projectTaskStats.map((project) => {
-                              const percent = project.taskCount ? (project.completedTaskCount / project.taskCount) * 100 : 0
-                              return (
-                                <div key={project.projectId} className="grid h-[70px] content-center gap-2">
-                                  <div className="flex items-center justify-between gap-2 text-xs">
-                                    <p title={project.name} className="min-w-0 truncate font-medium">{project.name}</p>
-                                    <span className="shrink-0 text-muted-foreground">
-                                      {project.taskCount} 项 · 已完成 {project.completedTaskCount}
-                                    </span>
-                                  </div>
-                                  <Progress value={percent} indicatorClassName="bg-success" aria-label={`${project.name}任务完成率`} />
-                                </div>
-                              )
-                            })}
-                          </div>
-                        )}
+                    <div className="grid gap-1 px-3 pb-3">
+                      {data.recentNotes.slice(0, 5).map((note) => (
+                        <Link
+                          key={note.id}
+                          to="/app/notes/$noteId"
+                          params={{ noteId: note.id }}
+                          className="min-w-0 rounded-md p-3 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/40"
+                        >
+                          <p className="truncate text-sm font-medium">{note.title}</p>
+                          <p className="mt-1 truncate text-xs text-muted-foreground">
+                            {note.summary || '继续记录想法…'}
+                          </p>
+                          <p className="mt-1 text-[11px] text-muted-foreground">
+                            {formatDateTime(note.updatedAt)}
+                          </p>
+                        </Link>
+                      ))}
+                      {!data.recentNotes.length && (
+                        <p className="px-1 py-3 text-sm text-muted-foreground">
+                          记下想法、会议结论或下一步计划。
+                        </p>
+                      )}
+                      <CreateNoteButton variant="ghost" className="justify-start text-primary" />
+                    </div>
                   </WorkspaceCard>
                 </div>
-              </>
-            )
-          }}
-        </QueryState>
-      </PageContainer>
-    </div>
+              </div>
+            </>
+          )
+        }}
+      </QueryState>
+    </PageContainer>
   )
 }
 
-function TodayTaskRow({
+function FocusTaskRow({
   task,
-  userName,
   disabled,
-  onToggle,
+  onComplete,
 }: {
   task: DashboardTask
-  userName: string
-  disabled: boolean
-  onToggle: (checked: boolean) => void
+  disabled?: boolean
+  onComplete?: () => void
 }) {
-  const checked = task.status === 'DONE'
   return (
-    <div className="dashboard-task-row flex h-14 items-center gap-2.5">
-      <Checkbox
-        aria-label={`完成任务：${task.title}`}
-        checked={checked}
-        disabled={disabled}
-        onChange={event => onToggle(event.target.checked)}
-      />
-      <div className="min-w-0 flex-1">
-        <p title={task.title} className={cn('truncate text-[13px]', checked && 'text-muted-foreground line-through')}>
-          {task.title}
+    <div className="flex items-start gap-3 py-3">
+      {onComplete && (
+        <Checkbox
+          className="mt-1"
+          aria-label={'完成任务：' + task.title}
+          disabled={disabled}
+          checked={false}
+          onChange={onComplete}
+        />
+      )}
+      <Link
+        to="/app/tasks"
+        search={{ taskId: task.id }}
+        className="min-w-0 flex-1 rounded-sm focus-visible:ring-2 focus-visible:ring-ring/40"
+      >
+        <p className="break-words text-sm font-medium hover:text-primary">{task.title}</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {task.projectName ?? '独立任务'} · {formatDateTime(task.dueAt)}
         </p>
-        <p className="truncate text-[11px] text-muted-foreground">
-          {task.projectName ?? '未关联项目'}
-          {' · '}
-          {userName}
-        </p>
-      </div>
-      <StatusBadge tone={priorityMeta[task.priority].tone}>{priorityMeta[task.priority].label}</StatusBadge>
-      <time className="w-16 shrink-0 text-right text-xs text-muted-foreground">{formatDateTime(task.dueAt)}</time>
+      </Link>
+      {(task.priority === 'URGENT' || task.priority === 'HIGH') && (
+        <StatusBadge tone="danger">{TASK_PRIORITY_LABELS[task.priority]}</StatusBadge>
+      )}
     </div>
   )
 }

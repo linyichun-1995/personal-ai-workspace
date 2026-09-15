@@ -40,8 +40,8 @@ export interface TaskTableItem {
   id: string
   title: string
   project: string
-  status: 'todo' | 'in-progress' | 'review' | 'done'
-  priority: 'low' | 'medium' | 'high'
+  status: TaskStatus
+  priority: TaskPriority
   dueAt: string
   assignee: string
   raw: Task
@@ -52,8 +52,8 @@ export function toTaskTableItem(task: Task, assignee: string, timeZone?: string)
     id: task.id,
     title: task.title,
     project: task.projectName ?? '未关联项目',
-    status: task.status === 'IN_PROGRESS' ? 'in-progress' : task.status === 'DONE' ? 'done' : 'todo',
-    priority: task.priority === 'LOW' ? 'low' : task.priority === 'HIGH' || task.priority === 'URGENT' ? 'high' : 'medium',
+    status: task.status,
+    priority: task.priority,
     dueAt: formatDateTime(task.dueAt, timeZone),
     assignee,
     raw: task,

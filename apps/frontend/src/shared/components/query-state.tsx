@@ -27,7 +27,7 @@ export function QueryState<TData>({
     )
   }
 
-  if (query.isError) {
+  if (query.isError && query.data === undefined) {
     return (
       <AsyncState status="error" error={query.error} onRetry={() => void query.refetch()}>
         {null}

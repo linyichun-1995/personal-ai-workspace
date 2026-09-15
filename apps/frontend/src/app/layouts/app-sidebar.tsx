@@ -137,7 +137,7 @@ function SidebarItem({
     <Link
       to={item.to}
       onClick={onNavigate}
-      activeOptions={{ exact: item.to !== '/app/settings' }}
+      activeOptions={{ exact: item.to === '/app/dashboard', includeSearch: false }}
       className={cn(itemClassName, collapsed && 'mx-auto size-9 justify-center px-0')}
       activeProps={{ className: activeClassName }}
     >
