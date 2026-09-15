@@ -23,20 +23,20 @@ Desktop.ini
 logs/
 
 # Backend (Gradle / Spring Boot)
-backend/.gradle/
-backend/.gradle-home/
-backend/build/
-backend/out/
-backend/bin/
+.gradle/
+.gradle-home/
+/apps/*/build/
+/apps/*/out/
+/apps/*/bin/
 
 # Frontend (Vite / pnpm / Playwright / Vitest)
-frontend/node_modules/
-frontend/dist/
-frontend/dist-ssr/
-frontend/.artifacts/
-frontend/test-results/
-frontend/playwright-report/
-frontend/blob-report/
-frontend/playwright/.cache/
-frontend/coverage/
-frontend/*.local
+node_modules/
+/apps/*/dist/
+/apps/*/dist-ssr/
+.artifacts/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+coverage/
+/apps/*/*.local
