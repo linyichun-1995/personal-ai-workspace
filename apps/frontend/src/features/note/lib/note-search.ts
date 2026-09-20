@@ -1,3 +1,4 @@
+import { safeOrigin } from '@/features/search/lib/search-params'
 import { asSearchRecord, readPage } from '@/shared/lib/route-search'
 import {
   validateProjectDetailSearch,
@@ -19,11 +20,13 @@ export function validateNoteListSearch(search: Record<string, unknown>): NoteLis
 }
 
 export function validateNoteDetailSearch(search: Record<string, unknown>): {
+  origin?: string
   from?: NoteListSearch
   project?: { page?: number; from?: ProjectListOrigin }
 } {
   const project = asSearchRecord(search.project)
   return {
+    origin: safeOrigin(search.origin),
     from: search.from ? validateNoteListSearch(asSearchRecord(search.from)) : undefined,
     project: search.project
       ? { page: readPage(project.page), from: validateProjectDetailSearch(project).from }

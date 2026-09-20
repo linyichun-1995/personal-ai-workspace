@@ -21,6 +21,22 @@ server:
       force: true
 
 app:
+  file-extraction:
+    enabled: ${FILE_EXTRACTION_ENABLED:false}
+    image: ${FILE_PARSER_IMAGE:workspace-file-parser:0.2}
+  file-purge:
+    enabled: ${FILE_PURGE_ENABLED:false}
+  storage:
+    enabled: ${STORAGE_ENABLED:false}
+    profile-id: ${STORAGE_PROFILE_ID:rustfs-local}
+    s3:
+      endpoint: ${STORAGE_S3_ENDPOINT:http://127.0.0.1:9000}
+      region: ${STORAGE_S3_REGION:us-east-1}
+      bucket: ${STORAGE_S3_BUCKET:personal-ai-workspace-dev}
+      access-key: ${STORAGE_S3_ACCESS_KEY:}
+      secret-key: ${STORAGE_S3_SECRET_KEY:}
+      path-style: true
+      integrity-mode: READBACK_SHA256
   request-id-header: X-Request-Id
   cors:
     allowed-origins:
@@ -39,6 +55,8 @@ app:
       - Authorization
       - Content-Type
       - X-Request-Id
+      - Idempotency-Key
+      - If-Match
     allow-credentials: true
   security:
     jwt:
@@ -55,6 +73,21 @@ app:
       same-site: Lax
     password:
       encoder: argon2
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  default-consumes-media-type: application/json
+  default-produces-media-type: application/json
+  show-actuator: false
+  writer-with-order-by-keys: true
+  override-with-generic-response: false
+
+scalar:
+  enabled: true
+  path: /scalar
+  url: /v3/api-docs
+  page-title: AI Personal Workspace API
 
 management:
   endpoints:

@@ -15,7 +15,11 @@ java {
     }
 }
 
+val parser = sourceSets.create("parser")
+
 dependencies {
+    add(parser.implementationConfigurationName, "org.apache.pdfbox:pdfbox:3.0.8")
+    add(parser.implementationConfigurationName, "com.twelvemonkeys.imageio:imageio-webp:3.15.2")
     // HTTP API
     implementation("org.springframework.boot:spring-boot-starter-webmvc")
     // Authentication / authorization
@@ -35,6 +39,15 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-data-redis")
     // Health probes
     implementation("org.springframework.boot:spring-boot-starter-actuator")
+    // OpenAPI 3 + Scalar API reference
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-scalar:3.1.1")
+    // One aligned SDK for the existing RustFS S3 service.
+    implementation(platform("software.amazon.awssdk:bom:2.55.1"))
+    implementation("software.amazon.awssdk:s3") {
+        exclude(group = "software.amazon.awssdk", module = "netty-nio-client")
+        exclude(group = "software.amazon.awssdk", module = "apache5-client")
+    }
+    implementation("software.amazon.awssdk:apache-client")
     // JDBC driver
     runtimeOnly("org.postgresql:postgresql")
 
@@ -79,6 +92,18 @@ tasks.named("jooqCodegen") {
     inputs.files(fileTree("src/main/resources/db/migration"))
 }
 
+tasks.named("compileJava") {
+    dependsOn("jooqCodegen")
+}
+
 tasks.withType<Test> {
     useJUnitPlatform()
+}
+
+tasks.register<Sync>("parserDistribution") {
+    dependsOn(parser.classesTaskName)
+    into(layout.buildDirectory.dir("parser"))
+    from(parser.output) { into("classes") }
+    from(configurations.named(parser.runtimeClasspathConfigurationName)) { into("lib") }
+    from("parser/Dockerfile")
 }

@@ -9,6 +9,10 @@ import { requireAuth, requireGuest } from '@/app/router/guards'
 import { AiChatPage, AiPage } from '@/features/ai'
 import { ForgotPasswordPage, LoginPage, RegisterPage } from '@/features/auth'
 import { FilesPage } from '@/features/file'
+import { FileDetailPage } from '@/features/file/pages/file-detail-page'
+import { validateFileSearch, validateFileDetailSearch } from '@/features/file/lib/file-search'
+import { validateGlobalSearch } from '@/features/search/lib/search-params'
+import { TagsSettingsPage } from '@/features/tag/pages/tags-settings-page'
 import { IntegrationsPage } from '@/features/integration'
 import { NoteDetailPage, NotesPage } from '@/features/note'
 import { ProjectDetailPage, ProjectsPage } from '@/features/project'
@@ -171,12 +175,21 @@ const noteDetailRoute = createRoute({
 const filesRoute = createRoute({
   getParentRoute: () => appRoute,
   path: 'files',
+  validateSearch: validateFileSearch,
   component: FilesPage,
+})
+
+const fileDetailRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: 'files/$fileId',
+  validateSearch: validateFileDetailSearch,
+  component: FileDetailPage,
 })
 
 const searchRoute = createRoute({
   getParentRoute: () => appRoute,
   path: 'search',
+  validateSearch: validateGlobalSearch,
   component: SearchPage,
 })
 
@@ -248,6 +261,12 @@ const settingsSecurityRoute = createRoute({
   component: SecuritySettingsPage,
 })
 
+const settingsTagsRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: 'tags',
+  component: TagsSettingsPage,
+})
+
 export const routeTree = rootRoute.addChildren([
   indexRoute,
   authLayoutRoute.addChildren([loginRoute, registerRoute, forgotPasswordRoute]),
@@ -266,6 +285,7 @@ export const routeTree = rootRoute.addChildren([
     notesRoute,
     noteDetailRoute,
     filesRoute,
+    fileDetailRoute,
     searchRoute,
     aiRoute,
     aiKnowledgeRoute,
@@ -278,6 +298,7 @@ export const routeTree = rootRoute.addChildren([
       settingsProfileRoute,
       settingsWorkspaceRoute,
       settingsSecurityRoute,
+      settingsTagsRoute,
     ]),
   ]),
 ])

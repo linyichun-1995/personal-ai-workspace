@@ -1,3 +1,5 @@
+import { Attachments } from '@/features/file/components/attachments'
+import { ObjectTags } from '@/features/tag/components/object-tags'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { useCallback, useRef, useState } from 'react'
@@ -85,7 +87,7 @@ export function TaskFormDialog({
       canNavigate={() => allowNavigation.current}
       onNavigationPermissionChange={setNavigationPermission}
     >
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{task ? '编辑任务' : '创建任务'}</DialogTitle>
           <DialogDescription>
@@ -219,6 +221,28 @@ export function TaskFormDialog({
             </DialogFooter>
           </fieldset>
         </form>
+        {task && (
+          <>
+            <ObjectTags
+              resource="tasks"
+              id={task.id}
+              readOnly={Boolean(
+                task.projectId &&
+                (!projects.find((p) => p.id === task.projectId) ||
+                  projects.find((p) => p.id === task.projectId)?.archivedAt),
+              )}
+            />
+            <Attachments
+              target={{ resource: 'tasks', id: task.id }}
+              projectId={task.projectId}
+              readOnly={Boolean(
+                task.projectId &&
+                (!projects.find((p) => p.id === task.projectId) ||
+                  projects.find((p) => p.id === task.projectId)?.archivedAt),
+              )}
+            />
+          </>
+        )}
       </DialogContent>
       <AlertDialog open={deleteOpen} onOpenChange={(value) => !deleting && setDeleteOpen(value)}>
         <AlertDialogContent>

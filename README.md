@@ -42,7 +42,7 @@ cd apps/backend
 .\gradlew.bat bootRun --args='--spring.profiles.active=local'
 ```
 
-后端默认地址：[http://localhost:8080](http://localhost:8080)。
+后端默认地址：[http://localhost:8080](http://localhost:8080)。本地 API 文档：[http://localhost:8080/scalar](http://localhost:8080/scalar)。
 
 ### 3. 前端
 
@@ -61,6 +61,8 @@ pnpm dev
 | 全部文档与存放规则 | [文档索引](docs/README.md) |
 | 工程目录、模块边界与扩展方式 | [目录与扩展约定](docs/architecture/repository-layout.md) |
 | V0.1 产品与技术规划 | [版本规划](docs/product/v0.1-plan.md) |
+| V0.2 二期规划、任务与实施计划 | [二期文档总入口](docs/product/v0.2-plan.md) |
+| RustFS 接入与 S3 API 二次封装 | [存储封装方案](docs/architecture/v0.2-s3-storage.md) |
 | UI 规范与参考图 | [UI 设计系统](docs/design/ui-design-system.md) |
 | 前端开发、页面与组件说明 | [前端开发指南](docs/development/frontend.md) |
 | 后端开发、API 与认证说明 | [后端开发指南](docs/development/backend.md) |

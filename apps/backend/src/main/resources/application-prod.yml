@@ -21,6 +21,13 @@ app:
     refresh-cookie:
       secure: true
 
+springdoc:
+  api-docs:
+    enabled: false
+
+scalar:
+  enabled: false
+
 management:
   endpoints:
     web:

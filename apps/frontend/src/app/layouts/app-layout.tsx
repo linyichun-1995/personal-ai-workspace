@@ -3,6 +3,7 @@ import { motion, useReducedMotion } from 'motion/react'
 import { useEffect } from 'react'
 
 import { AppHeader } from '@/app/layouts/app-header'
+import { UploadCoordinator } from '@/features/file/components/upload-panel'
 import { AppSidebar } from '@/app/layouts/app-sidebar'
 import { CommandPalette } from '@/shared/components/command-palette'
 import {
@@ -19,17 +20,23 @@ export function AppLayout() {
   const reducedMotion = useReducedMotion()
   const isDesktop = useIsDesktop()
   const isWideDesktop = useIsWideDesktop()
-  const mobileNavOpen = useUiStore(state => state.mobileNavOpen)
-  const setMobileNavOpen = useUiStore(state => state.setMobileNavOpen)
-  const toggleSidebar = useUiStore(state => state.toggleSidebar)
+  const mobileNavOpen = useUiStore((state) => state.mobileNavOpen)
+  const setMobileNavOpen = useUiStore((state) => state.setMobileNavOpen)
+  const toggleSidebar = useUiStore((state) => state.toggleSidebar)
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       const target = event.target
-      const isEditing = target instanceof HTMLElement
-        && (target.matches('input, textarea, select') || target.isContentEditable)
+      const isEditing =
+        target instanceof HTMLElement &&
+        (target.matches('input, textarea, select') || target.isContentEditable)
 
-      if (!isEditing && isWideDesktop && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'b') {
+      if (
+        !isEditing &&
+        isWideDesktop &&
+        (event.ctrlKey || event.metaKey) &&
+        event.key.toLowerCase() === 'b'
+      ) {
         event.preventDefault()
         toggleSidebar()
       }
@@ -40,30 +47,34 @@ export function AppLayout() {
   }, [isWideDesktop, toggleSidebar])
 
   return (
-    <motion.div className="flex min-h-dvh bg-background" initial={{ opacity: 0, scale: reducedMotion ? 1 : 1.01 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.35, ease: 'easeOut' }}>
-      {isDesktop
-        ? (
-            <div className="sticky top-0 hidden h-dvh md:block">
-              <AppSidebar />
-            </div>
-          )
-        : (
-            <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
-              <SheetContent side="left" className="w-72 p-0">
-                <SheetHeader className="sr-only">
-                  <SheetTitle>导航</SheetTitle>
-                  <SheetDescription>应用主导航</SheetDescription>
-                </SheetHeader>
-                <AppSidebar
-                  forceExpanded
-                  className="h-full w-full border-0"
-                  onNavigate={() => {
-                    setMobileNavOpen(false)
-                  }}
-                />
-              </SheetContent>
-            </Sheet>
-          )}
+    <motion.div
+      className="flex min-h-dvh bg-background"
+      initial={{ opacity: 0, scale: reducedMotion ? 1 : 1.01 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.35, ease: 'easeOut' }}
+    >
+      <UploadCoordinator />
+      {isDesktop ? (
+        <div className="sticky top-0 hidden h-dvh md:block">
+          <AppSidebar />
+        </div>
+      ) : (
+        <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+          <SheetContent side="left" className="w-72 p-0">
+            <SheetHeader className="sr-only">
+              <SheetTitle>导航</SheetTitle>
+              <SheetDescription>应用主导航</SheetDescription>
+            </SheetHeader>
+            <AppSidebar
+              forceExpanded
+              className="h-full w-full border-0"
+              onNavigate={() => {
+                setMobileNavOpen(false)
+              }}
+            />
+          </SheetContent>
+        </Sheet>
+      )}
 
       <div className="flex min-w-0 flex-1 flex-col">
         <AppHeader />

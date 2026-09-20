@@ -1,3 +1,6 @@
+import { OriginLink } from '@/features/search/components/origin-link'
+import { Attachments } from '@/features/file/components/attachments'
+import { ObjectTags } from '@/features/tag/components/object-tags'
 import { Link, getRouteApi, useBlocker, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Check, Copy, Eye, Loader2, Pencil, Save, Star } from 'lucide-react'
@@ -283,6 +286,13 @@ function NoteEditor({ note, workspaceId }: { note: Note; workspaceId: string }) 
           </Button>
         </div>
       </footer>
+      {search.origin && <OriginLink origin={search.origin} />}
+      <ObjectTags resource="notes" id={note.id} readOnly={readOnly || note.archived} />
+      <Attachments
+        target={{ resource: 'notes', id: note.id }}
+        projectId={note.projectId}
+        readOnly={readOnly || note.archived}
+      />
       <AlertDialog
         open={deleteOpen}
         onOpenChange={(value) => !remove.isPending && setDeleteOpen(value)}

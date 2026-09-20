@@ -51,6 +51,11 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(toBody(ErrorCode.VALIDATION_ERROR, "Malformed request body", List.of()));
     }
 
+    @ExceptionHandler(org.springframework.web.bind.ServletRequestBindingException.class)
+    public ResponseEntity<ErrorResponse> handleMissingParameter(org.springframework.web.bind.ServletRequestBindingException exception) {
+        return ResponseEntity.badRequest().body(toBody(ErrorCode.VALIDATION_ERROR, "缺少必需的请求头或参数", List.of()));
+    }
+
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ErrorResponse> handleAuthentication(AuthenticationException exception) {
         log.warn("Authentication failed: {}", exception.getMessage());

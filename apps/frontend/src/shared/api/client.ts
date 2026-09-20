@@ -9,6 +9,7 @@ export interface ApiRequestOptions extends Omit<RequestInit, 'body' | 'method'> 
   query?: QueryParams
   parseJson?: boolean
   skipAuthRefresh?: boolean
+  responseType?: 'json' | 'blob'
 }
 
 type AuthExpiredHandler = () => void
@@ -38,7 +39,8 @@ function appendQuery(url: string, query?: QueryParams): string {
       continue
     }
 
-    search.set(key, String(value))
+    if (Array.isArray(value)) value.forEach(item => search.append(key, item))
+    else search.set(key, String(value))
   }
 
   const serialized = search.toString()
@@ -162,6 +164,7 @@ export async function apiClient<T>(path: string, options: ApiRequestOptions = {}
     headers,
     parseJson = true,
     skipAuthRefresh = false,
+    responseType = 'json',
     ...rest
   } = options
 
@@ -195,7 +198,51 @@ export async function apiClient<T>(path: string, options: ApiRequestOptions = {}
     return undefined as T
   }
 
-  return await response.json() as T
+  return await (responseType === 'blob' ? response.blob() : response.json()) as T
+}
+
+/** Uses the same in-memory token and refresh lock as JSON requests. Bytes never enter a URL. */
+export async function uploadBytes<T>(path: string, file: Blob, options: {
+  signal: AbortSignal
+  onProgress: (percent: number) => void
+  mediaType: string
+}, refreshed = false): Promise<T> {
+  try {
+    return await new Promise<T>((resolve, reject) => {
+      const xhr = new XMLHttpRequest()
+      const abort = () => xhr.abort()
+      xhr.open('PUT', joinUrl(env.apiBaseUrl, path))
+      xhr.withCredentials = true
+      const headers = resolveHeaders(file, { 'Content-Type': options.mediaType })
+      headers.forEach((value, key) => xhr.setRequestHeader(key, value))
+      xhr.upload.onprogress = event => {
+        if (event.lengthComputable) options.onProgress(Math.min(100, Math.round(event.loaded * 100 / event.total)))
+      }
+      xhr.upload.onload = () => options.onProgress(100)
+      xhr.onload = () => {
+        let payload: unknown
+        try { payload = JSON.parse(xhr.responseText) } catch { /* handled below */ }
+        if (xhr.status >= 200 && xhr.status < 300) resolve(payload as T)
+        else {
+          const error = parseApiErrorBody(payload)
+          reject(new ApiError({ status: xhr.status, code: error?.code ?? 'HTTP_ERROR', message: error?.message ?? '上传未完成，请核对上传状态', traceId: error?.traceId }))
+        }
+      }
+      xhr.onerror = () => reject(new Error('网络连接中断，请核对上传状态后重试'))
+      xhr.onabort = () => reject(new DOMException('已取消传输，服务端正在核对状态', 'AbortError'))
+      xhr.onloadend = () => options.signal.removeEventListener('abort', abort)
+      options.signal.addEventListener('abort', abort, { once: true })
+      if (options.signal.aborted) { reject(new DOMException('已取消', 'AbortError')); return }
+      xhr.send(file)
+    })
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401 && !refreshed && !options.signal.aborted) {
+      try { await refreshAccessToken() } catch { expireSession(); throw error }
+      return uploadBytes<T>(path, file, options, true)
+    }
+    if (error instanceof ApiError && error.status === 401) expireSession()
+    throw error
+  }
 }
 
 export const api = {

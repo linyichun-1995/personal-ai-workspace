@@ -16,5 +16,5 @@ export interface PaginatedResult<T> {
 }
 
 export interface QueryParams {
-  [key: string]: string | number | boolean | null | undefined
+  [key: string]: string | number | boolean | readonly string[] | null | undefined
 }

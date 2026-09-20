@@ -8,11 +8,23 @@
 | --- | --- | --- |
 | 产品 | [V0.1 产品与技术规划](product/v0.1-plan.md) | 范围、模型、接口规划、迭代阶段；规划内容不代表全部已实现 |
 | 产品 | [V0.1 交互复盘与改进](product/v0.1-ux-review.md) | 一期入口、下一步操作、保存反馈的复盘与本轮改动边界 |
+| 产品 | [V0.2 二期产品规划](product/v0.2-plan.md) | 二期总入口、一期实际基线、范围、优先级与成功标准 |
+| 产品 | [V0.2 产品需求与业务规则](product/v0.2-requirements.md) | 文件、附件、标签、搜索、生命周期与 AC01 至 AC16 验收规则 |
+| 产品 | [V0.2 二期任务清单](product/v0.2-backlog.md) | 27 项 P0 任务，含 RustFS S3 封装与兼容验收、依赖及工作量 |
+| 产品 | [V0.2 二期实施计划](product/v0.2-delivery-plan.md) | 11 周排期、角色容量、里程碑、风险与范围控制 |
+| 产品 | [V0.2 业界方案调研](product/v0.2-research.md) | 官方来源、产品参考、方案比较与采用边界 |
 | 架构 | [目录与扩展约定](architecture/repository-layout.md) | 当前目录、模块职责、新增应用与共享代码的放置规则 |
+| 架构 | [V0.2 技术架构](architecture/v0.2-architecture.md) | 文件处理、持久化任务、中文关键词检索与一致性设计 |
+| 架构 | [V0.2 数据模型与接口](architecture/v0.2-data-api.md) | 表结构、约束、API、并发、错误码和迁移约定 |
+| 架构 | [V0.2 RustFS 与 S3 API 二次封装](architecture/v0.2-s3-storage.md) | 项目统一存储 API、AWS SDK v2 适配、字节校验、流管理和错误模型 |
 | 设计 | [UI 设计系统](design/ui-design-system.md) | 设计 Token、布局、主题、组件与交互规范 |
+| 设计 | [V0.2 页面与交互设计](design/v0.2-interaction.md) | 文件和搜索页面、附件、标签、路由与异常反馈 |
 | 设计 | [工作台 UI 参考图](design/assets/workspace-ui-reference.png) | 设计参考素材 |
 | 开发 | [前端开发指南](development/frontend.md) | 启动、认证交互、组件与布局说明 |
-| 开发 | [后端开发指南](development/backend.md) | 启动、现有 API、认证、数据库与时间约定 |
+| 开发 | [后端开发指南](development/backend.md) | 启动、现有 API、认证、数据库与时间约定；交互式文档见 Scalar |
+| 开发 | [V0.2 测试验收与发布计划](development/v0.2-quality-release.md) | 功能与安全用例、性能目标、发布门槛、灰度和恢复演练 |
+| 开发 | [V0.2 RustFS 现有环境与接入配置](development/v0.2-rustfs-integration.md) | 用户已运行容器、连接地址、私有桶、权限、配置和维护 |
+| 开发 | [V0.2 RustFS 与 S3 兼容验收](development/v0.2-s3-acceptance.md) | 17 项兼容用例、实际镜像与 SDK 组合、故障和验收记录 |
 
 ## 文档存放规则
 

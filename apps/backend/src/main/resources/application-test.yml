@@ -7,6 +7,8 @@ spring:
       maximum-pool-size: 4
 
 app:
+  jobs:
+    enabled: false
   security:
     jwt:
       secret: test-secret-please-do-not-use-in-prod-32b

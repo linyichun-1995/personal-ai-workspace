@@ -20,15 +20,20 @@ macOS / Linux 将 `.\gradlew.bat` 换成 `./gradlew`。
 
 默认地址：`http://localhost:8080`
 
-配置入口为 `src/main/resources/application*.yml`。可参考 [`.env.example`](../../apps/backend/.env.example) 设置进程环境变量；Spring Boot 当前配置不会自动加载应用目录的 `.env` 文件。`local` 配置已提供连接本地 Compose 服务的默认值。
+交互式 API 文档（Scalar）：[http://localhost:8080/scalar](http://localhost:8080/scalar)
+OpenAPI JSON：[http://localhost:8080/v3/api-docs](http://localhost:8080/v3/api-docs)
+
+配置入口为 `src/main/resources/application*.yml`。可参考 [`.env.example`](../../apps/backend/.env.example) 设置进程环境变量；Spring Boot 当前配置不会自动加载应用目录的 `.env` 文件。`local` 配置已提供连接本地 Compose 服务的默认值。`prod` 配置默认关闭 OpenAPI 与 Scalar。
 
 ## API
+
+接口说明、请求/响应模型和错误码以 Scalar / OpenAPI 为准。下面是路径总览。
 
 | Method | Path | 访问 |
 |---|---|---|
 | POST | `/api/v1/auth/register` | Public |
 | POST | `/api/v1/auth/login` | Public |
-| POST | `/api/v1/auth/refresh` | Public |
+| POST | `/api/v1/auth/refresh` | Public（凭 Refresh Cookie） |
 | POST | `/api/v1/auth/logout` | Public（凭 Refresh Cookie 撤销） |
 | GET | `/api/v1/me` | Protected |
 | PATCH | `/api/v1/me` | Protected，更新资料 |
@@ -38,25 +43,27 @@ macOS / Linux 将 `.\gradlew.bat` 换成 `./gradlew`。
 | PATCH | `/api/v1/workspaces/{workspaceId}` | Protected，仅 OWNER |
 | POST | `/api/v1/projects` | Protected |
 | GET | `/api/v1/projects` | Protected |
-| GET | `/api/v1/projects/{id}` | Protected |
-| PUT | `/api/v1/projects/{id}` | Protected |
-| PATCH | `/api/v1/projects/{id}/status` | Protected |
-| POST | `/api/v1/projects/{id}/archive` | Protected |
-| POST | `/api/v1/projects/{id}/restore` | Protected |
-| DELETE | `/api/v1/projects/{id}` | Protected，软删除并级联任务/笔记 |
+| GET | `/api/v1/projects/{projectId}` | Protected |
+| PUT | `/api/v1/projects/{projectId}` | Protected |
+| PATCH | `/api/v1/projects/{projectId}/status` | Protected |
+| POST | `/api/v1/projects/{projectId}/archive` | Protected |
+| POST | `/api/v1/projects/{projectId}/restore` | Protected |
+| DELETE | `/api/v1/projects/{projectId}` | Protected，软删除并级联任务/笔记 |
 | POST | `/api/v1/tasks` | Protected |
 | GET | `/api/v1/tasks` | Protected |
-| GET | `/api/v1/tasks/{id}` | Protected |
-| PUT | `/api/v1/tasks/{id}` | Protected |
-| PATCH | `/api/v1/tasks/{id}/status` | Protected |
-| DELETE | `/api/v1/tasks/{id}` | Protected |
+| GET | `/api/v1/tasks/{taskId}` | Protected |
+| PUT | `/api/v1/tasks/{taskId}` | Protected |
+| PATCH | `/api/v1/tasks/{taskId}/status` | Protected |
+| DELETE | `/api/v1/tasks/{taskId}` | Protected |
 | POST | `/api/v1/notes` | Protected |
 | GET | `/api/v1/notes` | Protected |
-| GET | `/api/v1/notes/{id}` | Protected |
-| PUT | `/api/v1/notes/{id}` | Protected |
-| DELETE | `/api/v1/notes/{id}` | Protected |
+| GET | `/api/v1/notes/{noteId}` | Protected |
+| PUT | `/api/v1/notes/{noteId}` | Protected |
+| DELETE | `/api/v1/notes/{noteId}` | Protected |
 | GET | `/api/v1/dashboard` | Protected |
 | GET | `/actuator/health` | Public |
+| GET | `/v3/api-docs` | Public（OpenAPI JSON，生产环境关闭） |
+| GET | `/scalar` | Public（API 文档 UI，生产环境关闭） |
 
 成功响应直接返回资源 JSON，HTTP 状态码表示结果。失败响应：
 
@@ -88,7 +95,7 @@ CSRF：Access Token 走 `Authorization: Bearer`。Refresh Cookie 使用 HttpOnly
 3. 生成代码不提交 Git，它由 Flyway SQL 派生
 4. 本地在改完 `src/main/resources/db/migration` 后，于 `apps/backend/` 执行 `./gradlew jooqCodegen`（PowerShell 使用 `.\gradlew.bat jooqCodegen`）
 
-当前 Repository 用 jOOQ `DSLContext` 手写字段访问，避免 Controller 直接碰数据库。后续表增多后，把 Repository 切到生成的 `Tables.*`。
+一期部分 Repository 仍使用 DSL 声明字段；二期文件、标签、搜索和后台任务统一使用生成的 `Tables.*` 与类型安全 DSL，禁止在业务查询中传入原生 SQL 字符串。Flyway SQL 负责结构、约束和触发器。`compileJava` 已依赖 `jooqCodegen`。
 
 ## ID
 

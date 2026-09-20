@@ -1,6 +1,15 @@
 import type { LucideIcon } from 'lucide-react'
 import { Link, Outlet, useRouterState } from '@tanstack/react-router'
-import { Bell, CircleHelp, CircleUserRound, House, Keyboard, Palette, Plug, Shield } from 'lucide-react'
+import {
+  Bell,
+  CircleHelp,
+  CircleUserRound,
+  House,
+  Keyboard,
+  Palette,
+  Plug,
+  Shield,
+} from 'lucide-react'
 
 import { PageContainer } from '@/shared/components/page-container'
 import { cn } from '@/shared/lib/utils'
@@ -8,6 +17,7 @@ import { cn } from '@/shared/lib/utils'
 const settingsNav = [
   { label: '个人资料', icon: CircleUserRound, to: '/app/settings/profile' },
   { label: '工作空间', icon: House, to: '/app/settings/workspace' },
+  { label: '标签', icon: House, to: '/app/settings/tags' },
   { label: '安全', icon: Shield, to: '/app/settings/security' },
   { label: '外观', icon: Palette, to: '/app/settings/appearance' },
   { label: '通知', icon: Bell },
@@ -23,7 +33,7 @@ function isSettingsLink(item: (typeof settingsNav)[number]): item is SettingsLin
 }
 
 export function SettingsLayout() {
-  const pathname = useRouterState({ select: state => state.location.pathname })
+  const pathname = useRouterState({ select: (state) => state.location.pathname })
 
   return (
     <PageContainer width="form" className="grid gap-5 lg:ml-0">
@@ -32,7 +42,10 @@ export function SettingsLayout() {
         <p className="mt-1 text-[13px] text-muted-foreground">让工作空间更适合你的习惯。</p>
       </header>
       <div className="grid min-w-0 overflow-hidden rounded-xl border border-border-subtle bg-card lg:grid-cols-[180px_minmax(0,1fr)]">
-        <nav aria-label="设置导航" className="flex gap-1 overflow-x-auto border-b border-border-subtle bg-surface/60 p-3 lg:flex-col lg:border-b-0 lg:border-r lg:py-5">
+        <nav
+          aria-label="设置导航"
+          className="flex gap-1 overflow-x-auto border-b border-border-subtle bg-surface/60 p-3 lg:flex-col lg:border-b-0 lg:border-r lg:py-5"
+        >
           {settingsNav.map((item) => {
             const Icon = item.icon as LucideIcon
             if (!isSettingsLink(item)) {

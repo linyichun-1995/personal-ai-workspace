@@ -1,3 +1,6 @@
+import { OriginLink } from '@/features/search/components/origin-link'
+import { FileLibrary } from '@/features/file/pages/files-page'
+import { ObjectTags } from '@/features/tag/components/object-tags'
 import { Link, getRouteApi, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Archive, ArrowLeft, NotebookPen, Plus, RotateCcw, Trash2 } from 'lucide-react'
@@ -48,6 +51,7 @@ const routeApi = getRouteApi('/app/projects/$projectId')
 const tabs = [
   { id: 'tasks', label: '任务' },
   { id: 'notes', label: '笔记' },
+  { id: 'files', label: '文件' },
   { id: 'overview', label: '项目信息' },
 ] as const
 
@@ -264,6 +268,9 @@ export function ProjectDetailPage() {
                 ))}
               </nav>
 
+              {search.origin && <OriginLink origin={search.origin} />}
+              <ObjectTags resource="projects" id={projectId} readOnly={archived} />
+              {tab === 'files' && <FileLibrary projectId={projectId} readOnly={archived} />}
               {tab === 'overview' ? (
                 <div className="grid gap-4">
                   <dl className="grid gap-3 rounded-lg border border-border-subtle bg-card p-4 sm:grid-cols-2 lg:grid-cols-3">

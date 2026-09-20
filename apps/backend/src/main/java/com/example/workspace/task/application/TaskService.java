@@ -2,6 +2,8 @@ package com.example.workspace.task.application;
 
 import com.example.workspace.common.api.PageQuery;
 import com.example.workspace.common.api.PageResponse;
+import com.example.workspace.common.domain.SourceType;
+import com.example.workspace.file.application.FileLifecycle;
 import com.example.workspace.common.exception.BusinessException;
 import com.example.workspace.common.exception.ResourceNotFoundException;
 import com.example.workspace.common.security.CurrentUser;
@@ -40,17 +42,20 @@ public class TaskService {
     private final TaskRepository taskRepository;
     private final ProjectRepository projectRepository;
     private final ProjectService projectService;
+    private final FileLifecycle fileLifecycle;
 
     public TaskService(
             CurrentWorkspaceResolver currentWorkspaceResolver,
             TaskRepository taskRepository,
             ProjectRepository projectRepository,
-            ProjectService projectService
+            ProjectService projectService,
+            FileLifecycle fileLifecycle
     ) {
         this.currentWorkspaceResolver = currentWorkspaceResolver;
         this.taskRepository = taskRepository;
         this.projectRepository = projectRepository;
         this.projectService = projectService;
+        this.fileLifecycle = fileLifecycle;
     }
 
     @Transactional
@@ -129,6 +134,7 @@ public class TaskService {
         }
         UUID projectId = resolveProjectId(workspaceId, request.projectId(), parent);
         validateTimes(request.startAt(), request.dueAt());
+        fileLifecycle.checkMove(workspaceId, SourceType.TASK, taskId, task.projectId(), projectId);
         Instant completedAt = completedAtFor(task.completedAt(), task.status(), request.status(), Instant.now());
         Task updated = taskRepository.update(new Task(
                 task.id(),
@@ -189,7 +195,9 @@ public class TaskService {
     }
 
     private Task requireTask(UUID workspaceId, UUID taskId) {
-        return taskRepository.findById(workspaceId, taskId).orElseThrow(ResourceNotFoundException::task);
+        Task task = taskRepository.findById(workspaceId, taskId).orElseThrow(ResourceNotFoundException::task);
+        fileLifecycle.checkParentWrite(workspaceId, task.projectId());
+        return task;
     }
 
     private Task resolveParent(UUID workspaceId, UUID parentId) {

@@ -2,6 +2,8 @@ package com.example.workspace.note.application;
 
 import com.example.workspace.common.api.PageQuery;
 import com.example.workspace.common.api.PageResponse;
+import com.example.workspace.common.domain.SourceType;
+import com.example.workspace.file.application.FileLifecycle;
 import com.example.workspace.common.exception.ResourceNotFoundException;
 import com.example.workspace.common.security.CurrentUser;
 import com.example.workspace.common.util.MarkdownSummaries;
@@ -27,15 +29,18 @@ public class NoteService {
     private final CurrentWorkspaceResolver currentWorkspaceResolver;
     private final NoteRepository noteRepository;
     private final ProjectService projectService;
+    private final FileLifecycle fileLifecycle;
 
     public NoteService(
             CurrentWorkspaceResolver currentWorkspaceResolver,
             NoteRepository noteRepository,
-            ProjectService projectService
+            ProjectService projectService,
+            FileLifecycle fileLifecycle
     ) {
         this.currentWorkspaceResolver = currentWorkspaceResolver;
         this.noteRepository = noteRepository;
         this.projectService = projectService;
+        this.fileLifecycle = fileLifecycle;
     }
 
     @Transactional
@@ -96,6 +101,7 @@ public class NoteService {
         UUID workspaceId = access.workspace().id();
         Note note = requireNote(workspaceId, noteId);
         UUID projectId = resolveProjectId(workspaceId, request.projectId());
+        fileLifecycle.checkMove(workspaceId, SourceType.NOTE, noteId, note.projectId(), projectId);
         String content = request.content() == null ? note.content() : request.content();
         Note updated = noteRepository.update(new Note(
                 note.id(),
@@ -123,7 +129,9 @@ public class NoteService {
     }
 
     private Note requireNote(UUID workspaceId, UUID noteId) {
-        return noteRepository.findById(workspaceId, noteId).orElseThrow(ResourceNotFoundException::note);
+        Note note = noteRepository.findById(workspaceId, noteId).orElseThrow(ResourceNotFoundException::note);
+        fileLifecycle.checkParentWrite(workspaceId, note.projectId());
+        return note;
     }
 
     private UUID resolveProjectId(UUID workspaceId, UUID projectId) {

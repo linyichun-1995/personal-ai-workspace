@@ -1,3 +1,4 @@
+import { safeOrigin } from '@/features/search/lib/search-params'
 import { asSearchRecord, readPage } from '@/shared/lib/route-search'
 
 export function validateProjectListSearch(search: Record<string, unknown>): {
@@ -13,15 +14,20 @@ export interface ProjectListOrigin {
 }
 
 export function validateProjectDetailSearch(search: Record<string, unknown>): {
-  tab?: 'tasks' | 'notes' | 'overview'
+  origin?: string
+  tab?: 'tasks' | 'notes' | 'overview' | 'files'
   taskPage?: number
   notePage?: number
   from?: ProjectListOrigin
 } {
   const from = asSearchRecord(search.from)
   return {
+    origin: safeOrigin(search.origin),
     tab:
-      search.tab === 'notes' || search.tab === 'overview' || search.tab === 'tasks'
+      search.tab === 'files' ||
+      search.tab === 'notes' ||
+      search.tab === 'overview' ||
+      search.tab === 'tasks'
         ? search.tab
         : undefined,
     taskPage: readPage(search.taskPage),
